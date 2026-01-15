@@ -1,4 +1,9 @@
 package com.example.sonicflow.data.local.database.entities
 
-class PlaylistTrackCrossRefEntity {
-}
+import androidx.room.Entity
+
+@Entity(primaryKeys = ["playlistId", "trackId"])
+data class PlaylistTrackCrossRefEntity(
+    val playlistId: Long,
+    val trackId: Long
+)

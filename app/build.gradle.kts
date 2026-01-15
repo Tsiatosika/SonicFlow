@@ -2,13 +2,13 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    id("org.jetbrains.kotlin.kapt")
 }
+
 
 android {
     namespace = "com.example.sonicflow"
-    compileSdk {
-        version = release(36)
-    }
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.example.sonicflow"
@@ -65,4 +65,11 @@ dependencies {
 
     //Serialization
     implementation("com.google.code.gson:gson:2.8.9")
+
+    //Room
+    val roomVersion = "2.6.1"  // Correction : utiliser val au lieu de def
+    implementation("androidx.room:room-runtime:$roomVersion")
+    implementation("androidx.room:room-ktx:$roomVersion")
+    kapt("androidx.room:room-compiler:$roomVersion")
+
 }
