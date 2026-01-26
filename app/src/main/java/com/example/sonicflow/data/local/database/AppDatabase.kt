@@ -1,22 +1,48 @@
 package com.example.sonicflow.data.local.database
 
+import android.content.Context
 import androidx.room.Database
+import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.TypeConverters
+import com.example.sonicflow.data.local.database.converters.Converters
 import com.example.sonicflow.data.local.dao.*
 import com.example.sonicflow.data.local.database.entities.*
 
 @Database(
     entities = [
-        TrackEntity::class,
         PlaylistEntity::class,
+        TrackEntity::class,
         PlaylistTrackCrossRefEntity::class,
         WaveformDataEntity::class
     ],
-    version = 1
+    version = 1,
+    exportSchema = false  // Pour éviter l'avertissement de schema
 )
+@TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
+
     abstract fun trackDao(): TrackDao
     abstract fun playlistDao(): PlaylistDao
     abstract fun playlistTrackCrossRefDao(): PlaylistTrackCrossRefDao
     abstract fun waveformDataDao(): WaveformDataDao
+
+    companion object {
+        @Volatile
+        private var INSTANCE: AppDatabase? = null
+
+        fun getDatabase(context: Context): AppDatabase {
+            return INSTANCE ?: synchronized(this) {
+                val instance = Room.databaseBuilder(
+                    context.applicationContext,
+                    AppDatabase::class.java,
+                    "sonicflow_database"
+                )
+                    .fallbackToDestructiveMigration() // Supprime et recrée en cas de migration
+                    .build()
+                INSTANCE = instance
+                instance
+            }
+        }
+    }
 }

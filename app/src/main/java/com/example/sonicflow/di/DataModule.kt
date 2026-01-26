@@ -4,6 +4,7 @@ import android.content.ContentResolver
 import android.content.Context
 import androidx.room.Room
 import com.example.sonicflow.data.local.database.AppDatabase
+import com.example.sonicflow.data.local.dao.TrackDao
 import com.example.sonicflow.data.remote.mediastore.MediaStoreDataSource
 import dagger.Module
 import dagger.Provides
@@ -15,7 +16,6 @@ import javax.inject.Singleton
 @Module
 @InstallIn(SingletonComponent::class)
 object DataModule {
-
     @Provides
     @Singleton
     fun provideAppDatabase(@ApplicationContext context: Context): AppDatabase {
@@ -26,7 +26,15 @@ object DataModule {
         ).build()
     }
 
+    // AJOUTÉ : Fournir le TrackDao
     @Provides
+    @Singleton
+    fun provideTrackDao(database: AppDatabase): TrackDao {
+        return database.trackDao()
+    }
+
+    @Provides
+    @Singleton  // AJOUTÉ : @Singleton pour éviter les incohérences
     fun provideContentResolver(@ApplicationContext context: Context): ContentResolver {
         return context.contentResolver
     }

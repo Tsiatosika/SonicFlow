@@ -2,13 +2,15 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <service
-        android:name=".service.AudioPlayerService"
-        android:exported="false">
-        <intent-filter>
-            <action android:name="androidx.media3.session.MediaSessionService" />
-        </intent-filter>
-    </service>
+    <!-- Permissions -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32" />
+    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO"
+        android:minSdkVersion="33" />
 
     <application
         android:allowBackup="true"
@@ -19,6 +21,20 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.SonicFlow">
+
+        <!-- Service doit être DANS l'application -->
+        <service
+            android:name=".service.AudioPlayerService"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback">
+            <intent-filter>
+                <action android:name="androidx.media3.session.MediaSessionService" />
+                <!-- Pour les boutons média matériels -->
+                <action android:name="android.intent.action.MEDIA_BUTTON" />
+            </intent-filter>
+        </service>
+
+        <!-- Activity -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -26,10 +42,10 @@
             android:theme="@style/Theme.SonicFlow">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
-
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
     </application>
 
 </manifest>

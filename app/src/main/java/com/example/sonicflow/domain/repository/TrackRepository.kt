@@ -7,4 +7,5 @@ interface TrackRepository {
     fun getAllTracks(): Flow<List<Track>>
     fun searchTracks(query: String): Flow<List<Track>>
     fun getTrackById(id: Long): Flow<Track?>
+    suspend fun refreshTracks()
 }

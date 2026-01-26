@@ -1,23 +1,39 @@
 package com.example.sonicflow.data.local.dao
 
-import androidx.room.Dao
-import androidx.room.Insert
-import androidx.room.OnConflictStrategy
-import androidx.room.Query
+import androidx.room.*
 import com.example.sonicflow.data.local.database.entities.TrackEntity
 import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface TrackDao {
-    @Query("SELECT * FROM tracks")
-    fun getAllTracks(): Flow<List<TrackEntity>>
-
-    @Query("SELECT * FROM tracks WHERE title LIKE '%' || :query || '%' OR artist LIKE '%' || :query || '%'")
-    fun searchTracks(query: String): Flow<List<TrackEntity>>
-
-    @Query("SELECT * FROM tracks WHERE id = :id")
-    fun getTrackById(id: Long): Flow<TrackEntity?>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertTracks(tracks: List<TrackEntity>)
+    suspend fun insert(track: TrackEntity): Long
+
+    @Update
+    suspend fun update(track: TrackEntity): Int
+
+    @Delete
+    suspend fun delete(track: TrackEntity): Int
+
+    @Query("SELECT * FROM tracks ORDER BY title ASC")
+    fun getAllTracks(): Flow<List<TrackEntity>>
+
+    @Query("SELECT * FROM tracks WHERE id = :trackId")
+    fun getTrackById(trackId: Long): Flow<TrackEntity?>
+
+    @Query("SELECT * FROM tracks WHERE title LIKE '%' || :searchQuery || '%' OR artist LIKE '%' || :searchQuery || '%'")
+    fun searchTracks(searchQuery: String): Flow<List<TrackEntity>>
+
+    @Query("SELECT * FROM tracks ORDER BY dateAdded DESC")
+    fun getTracksByDateAdded(): Flow<List<TrackEntity>>
+
+    @Query("SELECT * FROM tracks ORDER BY title ASC")
+    fun getTracksByName(): Flow<List<TrackEntity>>
+
+    @Query("SELECT COUNT(*) FROM tracks")
+    suspend fun getTrackCount(): Int
+
+    @Query("DELETE FROM tracks")
+    suspend fun deleteAll()
 }

@@ -1,11 +1,11 @@
 package com.example.sonicflow.domain.repository
 
-import android.support.v4.media.session.PlaybackStateCompat
 import com.example.sonicflow.domain.model.Track
+import com.example.sonicflow.service.AudioPlayerService
 import kotlinx.coroutines.flow.Flow
 
 interface AudioPlayerRepository {
-    fun getPlaybackState(): Flow<PlaybackStateCompat>
+    fun getPlaybackState(): Flow<AudioPlayerService.PlaybackState>
     fun getCurrentPlayingTrack(): Flow<Track?>
     suspend fun playTrack(track: Track)
     suspend fun playPlaylist(playlistId: Long, startIndex: Int = 0)

@@ -15,8 +15,6 @@ class TrackRepositoryImpl @Inject constructor(
 ) : TrackRepository {
 
     override fun getAllTracks(): Flow<List<Track>> {
-        // On pourrait combiner la source locale (Room) et MediaStore, mais pour simplifier,
-        // on utilise MediaStore pour scanner et on stocke en local pour les recherches.
         return trackDao.getAllTracks().map { entities ->
             entities.map { it.toDomain() }
         }
@@ -34,9 +32,10 @@ class TrackRepositoryImpl @Inject constructor(
         }
     }
 
-    suspend fun refreshTracks() {
+    override suspend fun refreshTracks() {
         val tracks = mediaStoreDataSource.queryAudioFiles()
-        trackDao.insertTracks(tracks.map { it.toEntity() })
+        val entities = tracks.map { it.toEntity() }
+        entities.forEach { trackDao.insert(it) }
     }
 
     private fun TrackEntity.toDomain(): Track = Track(
@@ -46,7 +45,12 @@ class TrackRepositoryImpl @Inject constructor(
         duration = duration,
         uri = uri,
         album = album,
-        albumArtUri = albumArtUri
+        albumArtUri = albumArtUri ?: "",
+        path = path,
+        size = size,
+        dateAdded = dateAdded,
+        displayName = displayName,
+        mimeType = mimeType
     )
 
     private fun Track.toEntity(): TrackEntity = TrackEntity(
@@ -56,6 +60,11 @@ class TrackRepositoryImpl @Inject constructor(
         duration = duration,
         uri = uri,
         album = album,
-        albumArtUri = albumArtUri
+        albumArtUri = albumArtUri,
+        path = path,
+        size = size,
+        dateAdded = dateAdded,
+        displayName = displayName,
+        mimeType = mimeType
     )
 }

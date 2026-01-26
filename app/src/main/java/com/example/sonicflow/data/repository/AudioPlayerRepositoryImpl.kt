@@ -1,17 +1,22 @@
 package com.example.sonicflow.data.repository
 
-import android.support.v4.media.session.PlaybackStateCompat
+import androidx.annotation.OptIn
+import androidx.media3.common.util.UnstableApi
 import com.example.sonicflow.domain.model.Track
 import com.example.sonicflow.domain.repository.AudioPlayerRepository
 import com.example.sonicflow.service.AudioPlayerService
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
-class AudioPlayerRepositoryImpl @Inject constructor(
+class AudioPlayerRepositoryImpl @OptIn(UnstableApi::class)
+@Inject constructor(
     private val audioPlayerService: AudioPlayerService
 ) : AudioPlayerRepository {
 
-    override fun getPlaybackState(): Flow<PlaybackStateCompat> {
+    @OptIn(UnstableApi::class)
+    override fun getPlaybackState(): Flow<AudioPlayerService.PlaybackState> {
         return audioPlayerService.playbackState
     }
 
@@ -19,39 +24,63 @@ class AudioPlayerRepositoryImpl @Inject constructor(
         return audioPlayerService.currentPlayingTrack
     }
 
+    @OptIn(UnstableApi::class)
     override suspend fun playTrack(track: Track) {
-        audioPlayerService.playTrack(track)
+        withContext(Dispatchers.Main) {
+            audioPlayerService.playTrack(track)
+        }
     }
 
     override suspend fun playPlaylist(playlistId: Long, startIndex: Int) {
-        // Implémenter la lecture d'une playlist
+        // TODO: Implémenter la lecture de playlist
     }
 
+    @OptIn(UnstableApi::class)
     override suspend fun pause() {
-        audioPlayerService.pause()
+        withContext(Dispatchers.Main) {
+            audioPlayerService.pause()
+        }
     }
 
+    @OptIn(UnstableApi::class)
     override suspend fun resume() {
-        audioPlayerService.resume()
+        withContext(Dispatchers.Main) {
+            audioPlayerService.resume()
+        }
     }
 
+    @OptIn(UnstableApi::class)
     override suspend fun seekTo(position: Long) {
-        audioPlayerService.seekTo(position)
+        withContext(Dispatchers.Main) {
+            audioPlayerService.seekTo(position)
+        }
     }
 
+    @OptIn(UnstableApi::class)
     override suspend fun skipToNext() {
-        audioPlayerService.skipToNext()
+        withContext(Dispatchers.Main) {
+            audioPlayerService.skipToNext()
+        }
     }
 
+    @OptIn(UnstableApi::class)
     override suspend fun skipToPrevious() {
-        audioPlayerService.skipToPrevious()
+        withContext(Dispatchers.Main) {
+            audioPlayerService.skipToPrevious()
+        }
     }
 
+    @OptIn(UnstableApi::class)
     override suspend fun setShuffleModeEnabled(enabled: Boolean) {
-        audioPlayerService.setShuffleModeEnabled(enabled)
+        withContext(Dispatchers.Main) {
+            audioPlayerService.setShuffleModeEnabled(enabled)
+        }
     }
 
+    @OptIn(UnstableApi::class)
     override suspend fun setRepeatMode(mode: Int) {
-        audioPlayerService.setRepeatMode(mode)
+        withContext(Dispatchers.Main) {
+            audioPlayerService.setRepeatMode(mode)
+        }
     }
 }
