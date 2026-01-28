@@ -11,13 +11,11 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.sonicflow.domain.model.Track
 import com.example.sonicflow.presentation.theme.SonicFlowTheme
-import com.example.sonicflow.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -37,7 +35,7 @@ fun LibraryScreen(
                 actions = {
                     IconButton(onClick = onPlaylistClick) {
                         Icon(
-                            painter = painterResource(R.drawable.ajouter),
+                            Icons.Default.PlaylistPlay,
                             contentDescription = "Playlists"
                         )
                     }
@@ -74,7 +72,7 @@ fun LibraryScreen(
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Icon(
-                        painter = painterResource(R.drawable.ic_music_note),
+                        Icons.Default.Error,
                         contentDescription = null,
                         modifier = Modifier.size(64.dp),
                         tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f)
@@ -99,7 +97,7 @@ fun LibraryScreen(
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Icon(
-                        painter = painterResource(R.drawable.ic_music_note),
+                        Icons.Default.MusicNote,
                         contentDescription = null,
                         modifier = Modifier.size(64.dp),
                         tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
@@ -162,7 +160,7 @@ fun TrackItem(
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    painter = painterResource(R.drawable.ic_music_note),
+                    Icons.Default.MusicNote,
                     contentDescription = null,
                     modifier = Modifier.size(32.dp),
                     tint = MaterialTheme.colorScheme.primary
@@ -200,6 +198,5 @@ fun TrackItem(
 fun LibraryScreenPreview() {
     SonicFlowTheme {
         // Création d'un ViewModel mock pour la prévisualisation
-
     }
 }

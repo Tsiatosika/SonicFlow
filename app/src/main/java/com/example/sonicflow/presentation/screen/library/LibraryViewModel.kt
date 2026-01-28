@@ -12,7 +12,7 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltViewModel
-open class LibraryViewModel @Inject constructor(
+class LibraryViewModel @Inject constructor(
     private val trackRepository: TrackRepository
 ) : ViewModel() {
 
@@ -26,19 +26,38 @@ open class LibraryViewModel @Inject constructor(
     val error: StateFlow<String?> = _error.asStateFlow()
 
     init {
-        loadTracks()
+        // Observer automatiquement les changements de la base de données
+        observeTracks()
+        // Scanner au démarrage si vide
+        checkAndScanIfEmpty()
     }
 
-    fun loadTracks() {
+    private fun observeTracks() {
+        viewModelScope.launch {
+            trackRepository.getAllTracks().collect { trackList ->
+                android.util.Log.d("LibraryViewModel", "Tracks updated: ${trackList.size}")
+                _tracks.value = trackList
+            }
+        }
+    }
+
+    private fun checkAndScanIfEmpty() {
         viewModelScope.launch {
             _isLoading.value = true
             _error.value = null
 
             try {
-                trackRepository.getAllTracks().collect { trackList ->
-                    _tracks.value = trackList
+                // Vérifier le nombre de morceaux dans la DB
+                val currentTracks = _tracks.value
+                android.util.Log.d("LibraryViewModel", "Current tracks in DB: ${currentTracks.size}")
+
+                if (currentTracks.isEmpty()) {
+                    android.util.Log.d("LibraryViewModel", "Database empty, scanning files...")
+                    trackRepository.refreshTracks()
+                    android.util.Log.d("LibraryViewModel", "Scan completed")
                 }
             } catch (e: Exception) {
+                android.util.Log.e("LibraryViewModel", "Error during initial scan", e)
                 _error.value = "Failed to load tracks: ${e.message}"
             } finally {
                 _isLoading.value = false
@@ -46,13 +65,22 @@ open class LibraryViewModel @Inject constructor(
         }
     }
 
+    fun loadTracks() {
+        // Cette fonction relance juste le check
+        checkAndScanIfEmpty()
+    }
+
     fun refreshTracks() {
         viewModelScope.launch {
             _isLoading.value = true
+            _error.value = null
+
             try {
+                android.util.Log.d("LibraryViewModel", "Manual refresh started...")
                 trackRepository.refreshTracks()
-                loadTracks() // Recharger après rafraîchissement
+                android.util.Log.d("LibraryViewModel", "Manual refresh completed")
             } catch (e: Exception) {
+                android.util.Log.e("LibraryViewModel", "Error refreshing tracks", e)
                 _error.value = "Failed to refresh: ${e.message}"
             } finally {
                 _isLoading.value = false
@@ -62,12 +90,19 @@ open class LibraryViewModel @Inject constructor(
 
     fun searchTracks(query: String) {
         viewModelScope.launch {
-            if (query.isNotEmpty()) {
-                trackRepository.searchTracks(query).collect { results ->
-                    _tracks.value = results
+            try {
+                if (query.isNotEmpty()) {
+                    trackRepository.searchTracks(query).collect { results ->
+                        _tracks.value = results
+                    }
+                } else {
+                    // Revenir à tous les morceaux
+                    trackRepository.getAllTracks().collect { trackList ->
+                        _tracks.value = trackList
+                    }
                 }
-            } else {
-                loadTracks()
+            } catch (e: Exception) {
+                _error.value = "Search failed: ${e.message}"
             }
         }
     }

@@ -2,17 +2,15 @@ package com.example.sonicflow.presentation.screen.player
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.sonicflow.presentation.theme.SonicFlowTheme
-import com.example.sonicflow.R
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PlayerScreen(
@@ -45,7 +43,7 @@ fun PlayerScreen(
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 Icon(
-                    painter = painterResource(R.drawable.ic_music_note),
+                    Icons.Default.MusicNote,
                     contentDescription = null,
                     modifier = Modifier.size(96.dp),
                     tint = MaterialTheme.colorScheme.primary
@@ -71,7 +69,7 @@ fun PlayerScreen(
                 ) {
                     IconButton(onClick = {}) {
                         Icon(
-                            painter = painterResource(R.drawable.ic_music_note),
+                            Icons.Default.SkipPrevious,
                             contentDescription = "Previous",
                             modifier = Modifier.size(48.dp)
                         )
@@ -87,7 +85,7 @@ fun PlayerScreen(
 
                     IconButton(onClick = {}) {
                         Icon(
-                            painter = painterResource(R.drawable.ic_music_note),
+                            Icons.Default.SkipNext,
                             contentDescription = "Next",
                             modifier = Modifier.size(48.dp)
                         )
