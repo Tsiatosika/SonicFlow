@@ -1,15 +1,21 @@
 package com.example.sonicflow
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -24,12 +30,60 @@ import dagger.hilt.android.AndroidEntryPoint
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
+    private val requestPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            Toast.makeText(this, "Permission accordée", Toast.LENGTH_SHORT).show()
+        } else {
+            Toast.makeText(
+                this,
+                "Permission refusée - L'app ne peut pas accéder à vos fichiers audio",
+                Toast.LENGTH_LONG
+            ).show()
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
+        // Vérifier et demander les permissions
+        checkAndRequestPermissions()
+
         setContent {
             SonicFlowApp()
+        }
+    }
+
+    private fun checkAndRequestPermissions() {
+        val permission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            Manifest.permission.READ_MEDIA_AUDIO
+        } else {
+            Manifest.permission.READ_EXTERNAL_STORAGE
+        }
+
+        when {
+            ContextCompat.checkSelfPermission(
+                this,
+                permission
+            ) == PackageManager.PERMISSION_GRANTED -> {
+                // Permission déjà accordée
+                android.util.Log.d("MainActivity", "Permission already granted")
+            }
+            shouldShowRequestPermissionRationale(permission) -> {
+                // Expliquer pourquoi l'app a besoin de cette permission
+                Toast.makeText(
+                    this,
+                    "Cette permission est nécessaire pour lire vos fichiers audio",
+                    Toast.LENGTH_LONG
+                ).show()
+                requestPermissionLauncher.launch(permission)
+            }
+            else -> {
+                // Demander la permission
+                requestPermissionLauncher.launch(permission)
+            }
         }
     }
 }

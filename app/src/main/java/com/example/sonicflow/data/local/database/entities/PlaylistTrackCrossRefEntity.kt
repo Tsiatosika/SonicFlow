@@ -9,5 +9,6 @@ import androidx.room.Entity
 data class PlaylistTrackCrossRefEntity(
     val playlistId: Long,
     val trackId: Long,
-    val addedAt: Long = System.currentTimeMillis()
+    val position: Int = 0,
+    val dateAdded: Long = System.currentTimeMillis()
 )

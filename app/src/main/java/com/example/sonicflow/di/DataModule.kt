@@ -22,11 +22,12 @@ object DataModule {
         return Room.databaseBuilder(
             context,
             AppDatabase::class.java,
-            "sonicflow.db"
-        ).build()
+            "sonicflow_database"  // Utiliser le même nom que dans AppDatabase.kt
+        )
+            .fallbackToDestructiveMigration()
+            .build()
     }
 
-    // AJOUTÉ : Fournir le TrackDao
     @Provides
     @Singleton
     fun provideTrackDao(database: AppDatabase): TrackDao {
@@ -34,7 +35,7 @@ object DataModule {
     }
 
     @Provides
-    @Singleton  // AJOUTÉ : @Singleton pour éviter les incohérences
+    @Singleton
     fun provideContentResolver(@ApplicationContext context: Context): ContentResolver {
         return context.contentResolver
     }

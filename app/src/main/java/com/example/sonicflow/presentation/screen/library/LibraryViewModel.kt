@@ -25,11 +25,11 @@ class LibraryViewModel @Inject constructor(
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
 
+    private var isInitialized = false
+
     init {
-        // Observer automatiquement les changements de la base de données
         observeTracks()
-        // Scanner au démarrage si vide
-        checkAndScanIfEmpty()
+        // Le scan initial sera déclenché après la première collection
     }
 
     private fun observeTracks() {
@@ -37,37 +37,22 @@ class LibraryViewModel @Inject constructor(
             trackRepository.getAllTracks().collect { trackList ->
                 android.util.Log.d("LibraryViewModel", "Tracks updated: ${trackList.size}")
                 _tracks.value = trackList
-            }
-        }
-    }
 
-    private fun checkAndScanIfEmpty() {
-        viewModelScope.launch {
-            _isLoading.value = true
-            _error.value = null
-
-            try {
-                // Vérifier le nombre de morceaux dans la DB
-                val currentTracks = _tracks.value
-                android.util.Log.d("LibraryViewModel", "Current tracks in DB: ${currentTracks.size}")
-
-                if (currentTracks.isEmpty()) {
-                    android.util.Log.d("LibraryViewModel", "Database empty, scanning files...")
-                    trackRepository.refreshTracks()
-                    android.util.Log.d("LibraryViewModel", "Scan completed")
+                // Scanner automatiquement si la DB est vide au premier chargement
+                if (!isInitialized && trackList.isEmpty()) {
+                    isInitialized = true
+                    android.util.Log.d("LibraryViewModel", "First load - DB empty, triggering scan")
+                    refreshTracks()
+                } else if (!isInitialized) {
+                    isInitialized = true
                 }
-            } catch (e: Exception) {
-                android.util.Log.e("LibraryViewModel", "Error during initial scan", e)
-                _error.value = "Failed to load tracks: ${e.message}"
-            } finally {
-                _isLoading.value = false
             }
         }
     }
 
     fun loadTracks() {
-        // Cette fonction relance juste le check
-        checkAndScanIfEmpty()
+        // Force un refresh
+        refreshTracks()
     }
 
     fun refreshTracks() {
@@ -76,9 +61,9 @@ class LibraryViewModel @Inject constructor(
             _error.value = null
 
             try {
-                android.util.Log.d("LibraryViewModel", "Manual refresh started...")
+                android.util.Log.d("LibraryViewModel", "Starting track refresh...")
                 trackRepository.refreshTracks()
-                android.util.Log.d("LibraryViewModel", "Manual refresh completed")
+                android.util.Log.d("LibraryViewModel", "Track refresh completed")
             } catch (e: Exception) {
                 android.util.Log.e("LibraryViewModel", "Error refreshing tracks", e)
                 _error.value = "Failed to refresh: ${e.message}"
@@ -102,6 +87,7 @@ class LibraryViewModel @Inject constructor(
                     }
                 }
             } catch (e: Exception) {
+                android.util.Log.e("LibraryViewModel", "Search error", e)
                 _error.value = "Search failed: ${e.message}"
             }
         }

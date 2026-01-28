@@ -33,8 +33,16 @@ class TrackRepositoryImpl @Inject constructor(
     }
 
     override suspend fun refreshTracks() {
+        // 1. Supprimer toutes les anciennes entrées
+        trackDao.deleteAll()
+
+        // 2. Récupérer les nouvelles pistes depuis MediaStore
         val tracks = mediaStoreDataSource.queryAudioFiles()
+
+        // 3. Convertir en entités et insérer
         val entities = tracks.map { it.toEntity() }
+
+        // 4. Insérer en masse (plus efficace)
         entities.forEach { trackDao.insert(it) }
     }
 
