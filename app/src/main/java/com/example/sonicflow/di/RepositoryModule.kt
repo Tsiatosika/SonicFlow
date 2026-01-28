@@ -12,7 +12,7 @@ import com.example.sonicflow.data.repository.TrackRepositoryImpl
 import com.example.sonicflow.domain.repository.AudioPlayerRepository
 import com.example.sonicflow.domain.repository.PlaylistRepository
 import com.example.sonicflow.domain.repository.TrackRepository
-import com.example.sonicflow.service.AudioPlayerServiceManager
+import com.example.sonicflow.service.AudioPlayerServiceConnection
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -46,11 +46,11 @@ object RepositoryModule {
     @UnstableApi
     @Provides
     @Singleton
-    fun provideAudioPlayerServiceManager(
+    fun provideAudioPlayerServiceConnection(
         @ApplicationContext context: Context
-    ): AudioPlayerServiceManager {
-        return AudioPlayerServiceManager(context).apply {
-            bindService()
+    ): AudioPlayerServiceConnection {
+        return AudioPlayerServiceConnection(context).apply {
+            bind()
         }
     }
 
@@ -58,8 +58,8 @@ object RepositoryModule {
     @Provides
     @Singleton
     fun provideAudioPlayerRepository(
-        serviceManager: AudioPlayerServiceManager
+        serviceConnection: AudioPlayerServiceConnection
     ): AudioPlayerRepository {
-        return AudioPlayerRepositoryImpl(serviceManager)
+        return AudioPlayerRepositoryImpl(serviceConnection)
     }
 }

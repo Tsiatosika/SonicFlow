@@ -11,8 +11,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.media3.common.Player
+import androidx.media3.common.util.UnstableApi
 
-@OptIn(ExperimentalMaterial3Api::class)
+@androidx.annotation.OptIn(UnstableApi::class) @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PlayerScreen(
     trackId: Long?,
@@ -24,9 +25,11 @@ fun PlayerScreen(
     val isShuffleEnabled by viewModel.isShuffleEnabled.collectAsState()
     val repeatMode by viewModel.repeatMode.collectAsState()
 
+    // Charger et lancer la lecture automatiquement
     LaunchedEffect(trackId) {
         trackId?.let {
-            viewModel.loadTrack(it)
+            android.util.Log.d("PlayerScreen", "Loading track with ID: $it")
+            viewModel.loadAndPlayTrack(it)
         }
     }
 
@@ -85,7 +88,7 @@ fun PlayerScreen(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(
-                        text = currentTrack?.title ?: "No Track",
+                        text = currentTrack?.title ?: "Loading...",
                         style = MaterialTheme.typography.headlineSmall,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -179,7 +182,10 @@ fun PlayerScreen(
 
                     // Play/Pause
                     FilledIconButton(
-                        onClick = { viewModel.togglePlayPause() },
+                        onClick = {
+                            android.util.Log.d("PlayerScreen", "Play/Pause clicked, isPlaying: ${playbackState.isPlaying}")
+                            viewModel.togglePlayPause()
+                        },
                         modifier = Modifier.size(72.dp)
                     ) {
                         Icon(
@@ -216,6 +222,15 @@ fun PlayerScreen(
                                 MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                         )
                     }
+                }
+
+                // Debug info
+                if (playbackState.duration <= 0) {
+                    Text(
+                        text = "Chargement...",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
                 }
             }
         }

@@ -3,6 +3,7 @@ package com.example.sonicflow.presentation.screen.player
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.media3.common.Player
+import androidx.media3.common.util.UnstableApi
 import com.example.sonicflow.domain.model.Track
 import com.example.sonicflow.domain.repository.AudioPlayerRepository
 import com.example.sonicflow.domain.repository.TrackRepository
@@ -14,7 +15,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-@HiltViewModel
+@UnstableApi @HiltViewModel
 class PlayerViewModel @Inject constructor(
     private val audioPlayerRepository: AudioPlayerRepository,
     private val trackRepository: TrackRepository
@@ -41,6 +42,7 @@ class PlayerViewModel @Inject constructor(
         viewModelScope.launch {
             audioPlayerRepository.getPlaybackState().collect { state ->
                 _playbackState.value = state
+                android.util.Log.d("PlayerViewModel", "Playback state: $state")
             }
         }
     }
@@ -48,16 +50,23 @@ class PlayerViewModel @Inject constructor(
     private fun observeCurrentTrack() {
         viewModelScope.launch {
             audioPlayerRepository.getCurrentPlayingTrack().collect { track ->
-                _currentTrack.value = track
+                if (track != null) {
+                    _currentTrack.value = track
+                    android.util.Log.d("PlayerViewModel", "Current track: ${track.title}")
+                }
             }
         }
     }
 
-    fun loadTrack(trackId: Long) {
+    fun loadAndPlayTrack(trackId: Long) {
         viewModelScope.launch {
+            android.util.Log.d("PlayerViewModel", "Loading track with ID: $trackId")
             trackRepository.getTrackById(trackId).collect { track ->
                 track?.let {
+                    android.util.Log.d("PlayerViewModel", "Track found: ${it.title}, URI: ${it.uri}")
                     _currentTrack.value = it
+                    // Lancer automatiquement la lecture
+                    playTrack(it)
                 }
             }
         }
@@ -65,6 +74,7 @@ class PlayerViewModel @Inject constructor(
 
     fun playTrack(track: Track) {
         viewModelScope.launch {
+            android.util.Log.d("PlayerViewModel", "Playing track: ${track.title}")
             audioPlayerRepository.playTrack(track)
         }
     }
@@ -72,8 +82,10 @@ class PlayerViewModel @Inject constructor(
     fun togglePlayPause() {
         viewModelScope.launch {
             if (_playbackState.value.isPlaying) {
+                android.util.Log.d("PlayerViewModel", "Pausing")
                 audioPlayerRepository.pause()
             } else {
+                android.util.Log.d("PlayerViewModel", "Resuming")
                 audioPlayerRepository.resume()
             }
         }
@@ -118,6 +130,8 @@ class PlayerViewModel @Inject constructor(
     }
 
     fun formatDuration(millis: Long): String {
+        if (millis < 0) return "0:00"
+
         val seconds = (millis / 1000) % 60
         val minutes = (millis / (1000 * 60)) % 60
         val hours = millis / (1000 * 60 * 60)

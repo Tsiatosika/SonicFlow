@@ -10,6 +10,13 @@
     <!-- Permission pour Android 13+ -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
+    <!-- Permissions pour les services en avant-plan -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+
+    <!-- Permission pour Wake Lock (optionnel mais recommandé pour la lecture audio) -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+
     <application
         android:name=".SonicFlowApplication"
         android:allowBackup="true"
@@ -31,6 +38,18 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- Service Audio Player -->
+        <service
+            android:name=".service.AudioPlayerService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback">
+            <intent-filter>
+                <action android:name="androidx.media3.session.MediaSessionService" />
+            </intent-filter>
+        </service>
+
     </application>
 
 </manifest>

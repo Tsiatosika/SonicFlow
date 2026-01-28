@@ -1,5 +1,5 @@
 <resources>
     <string name="app_name">SonicFlow</string>
-    <string name="notification_channel_name">SonicFlow Music</string>
-    <string name="notification_channel_description">Music playback controls</string>
+    <string name="notification_channel_name">Lecture de musique</string>
+    <string name="notification_channel_description">Contrôles de lecture audio</string>
 </resources>

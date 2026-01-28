@@ -4,32 +4,26 @@ import androidx.media3.common.util.UnstableApi
 import com.example.sonicflow.domain.model.Track
 import com.example.sonicflow.domain.repository.AudioPlayerRepository
 import com.example.sonicflow.service.AudioPlayerService
-import com.example.sonicflow.service.AudioPlayerServiceManager
+import com.example.sonicflow.service.AudioPlayerServiceConnection
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.flow
 import javax.inject.Inject
 
 @UnstableApi
 class AudioPlayerRepositoryImpl @Inject constructor(
-    private val serviceManager: AudioPlayerServiceManager
+    private val serviceConnection: AudioPlayerServiceConnection
 ) : AudioPlayerRepository {
 
-    private fun getService(): AudioPlayerService? = serviceManager.getService()
-
     override fun getPlaybackState(): Flow<AudioPlayerService.PlaybackState> {
-        return getService()?.playbackState ?: flow {
-            emit(AudioPlayerService.PlaybackState())
-        }
+        return serviceConnection.getPlaybackState()
     }
 
     override fun getCurrentPlayingTrack(): Flow<Track?> {
-        return getService()?.currentPlayingTrack ?: flow {
-            emit(null)
-        }
+        return serviceConnection.getCurrentPlayingTrack()
     }
 
     override suspend fun playTrack(track: Track) {
-        getService()?.playTrack(track)
+        android.util.Log.d("AudioPlayerRepository", "Playing track: ${track.title}")
+        serviceConnection.playTrack(track)
     }
 
     override suspend fun playPlaylist(playlistId: Long, startIndex: Int) {
@@ -38,30 +32,30 @@ class AudioPlayerRepositoryImpl @Inject constructor(
     }
 
     override suspend fun pause() {
-        getService()?.pause()
+        serviceConnection.pause()
     }
 
     override suspend fun resume() {
-        getService()?.resume()
+        serviceConnection.resume()
     }
 
     override suspend fun seekTo(position: Long) {
-        getService()?.seekTo(position)
+        serviceConnection.seekTo(position)
     }
 
     override suspend fun skipToNext() {
-        getService()?.skipToNext()
+        serviceConnection.skipToNext()
     }
 
     override suspend fun skipToPrevious() {
-        getService()?.skipToPrevious()
+        serviceConnection.skipToPrevious()
     }
 
     override suspend fun setShuffleModeEnabled(enabled: Boolean) {
-        getService()?.setShuffleModeEnabled(enabled)
+        serviceConnection.setShuffleModeEnabled(enabled)
     }
 
     override suspend fun setRepeatMode(mode: Int) {
-        getService()?.setRepeatMode(mode)
+        serviceConnection.setRepeatMode(mode)
     }
 }

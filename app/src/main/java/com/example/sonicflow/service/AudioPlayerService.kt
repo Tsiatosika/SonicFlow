@@ -19,7 +19,6 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
-import androidx.media3.session.SessionCommand
 import androidx.media3.ui.PlayerNotificationManager
 import com.example.sonicflow.MainActivity
 import com.example.sonicflow.R
@@ -58,6 +57,7 @@ class AudioPlayerService : MediaSessionService() {
         val playbackState: Int = Player.STATE_IDLE
     )
 
+    // Binder pour permettre la connexion au service
     inner class AudioPlayerBinder : Binder() {
         fun getService(): AudioPlayerService = this@AudioPlayerService
     }
@@ -202,6 +202,7 @@ class AudioPlayerService : MediaSessionService() {
 
         override fun onPlayerError(error: PlaybackException) {
             error.printStackTrace()
+            android.util.Log.e("AudioPlayerService", "Playback error", error)
         }
     }
 
@@ -237,6 +238,8 @@ class AudioPlayerService : MediaSessionService() {
 
     // Méthodes publiques pour contrôler la lecture
     fun playTrack(track: Track) {
+        android.util.Log.d("AudioPlayerService", "Playing track: ${track.title}")
+
         val mediaItem = MediaItem.Builder()
             .setUri(track.uri)
             .setMediaMetadata(
