@@ -4,8 +4,11 @@ import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
+import android.content.Intent
+import android.os.Binder
 import android.os.Build
 import android.os.Bundle
+import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
@@ -18,15 +21,13 @@ import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 import androidx.media3.session.SessionCommand
 import androidx.media3.ui.PlayerNotificationManager
+import com.example.sonicflow.MainActivity
 import com.example.sonicflow.R
 import com.example.sonicflow.domain.model.Track
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import java.util.concurrent.Executors
-
-
 
 @UnstableApi
 class AudioPlayerService : MediaSessionService() {
@@ -39,6 +40,8 @@ class AudioPlayerService : MediaSessionService() {
     private lateinit var mediaSession: MediaSession
     private lateinit var player: ExoPlayer
     private lateinit var notificationManager: PlayerNotificationManager
+
+    private val binder = AudioPlayerBinder()
 
     // Les StateFlows pour exposer l'état
     private val _playbackState = MutableStateFlow(PlaybackState())
@@ -55,14 +58,22 @@ class AudioPlayerService : MediaSessionService() {
         val playbackState: Int = Player.STATE_IDLE
     )
 
+    inner class AudioPlayerBinder : Binder() {
+        fun getService(): AudioPlayerService = this@AudioPlayerService
+    }
+
+    override fun onBind(intent: Intent?): IBinder {
+        super.onBind(intent)
+        return binder
+    }
 
     override fun onCreate() {
         super.onCreate()
 
         // Initialiser le player
         player = ExoPlayer.Builder(this)
-            .setSeekBackIncrementMs(15000) // 15 secondes pour reculer
-            .setSeekForwardIncrementMs(30000) // 30 secondes pour avancer
+            .setSeekBackIncrementMs(15000)
+            .setSeekForwardIncrementMs(30000)
             .build()
 
         // Configurer les listeners du player
@@ -127,7 +138,13 @@ class AudioPlayerService : MediaSessionService() {
                     }
 
                     override fun createCurrentContentIntent(player: Player): PendingIntent? {
-                        TODO("Not yet implemented")
+                        val intent = Intent(this@AudioPlayerService, MainActivity::class.java)
+                        return PendingIntent.getActivity(
+                            this@AudioPlayerService,
+                            0,
+                            intent,
+                            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+                        )
                     }
 
                     override fun getCurrentContentText(player: Player): CharSequence {
@@ -137,7 +154,7 @@ class AudioPlayerService : MediaSessionService() {
                     override fun getCurrentLargeIcon(
                         player: Player,
                         callback: PlayerNotificationManager.BitmapCallback
-                    ) = null // Tu peux ajouter une icône ici si tu veux
+                    ) = null
                 }
             )
             .setNotificationListener(notificationListener)
@@ -154,11 +171,7 @@ class AudioPlayerService : MediaSessionService() {
         override fun onPlaybackStateChanged(playbackState: Int) {
             _playbackState.value = _playbackState.value.copy(
                 playbackState = playbackState,
-                isPlaying = playbackState == Player.STATE_READY && player.isPlaying
-            )
-
-            // Mettre à jour la position actuelle
-            _playbackState.value = _playbackState.value.copy(
+                isPlaying = playbackState == Player.STATE_READY && player.isPlaying,
                 currentPosition = player.currentPosition,
                 duration = player.duration,
                 bufferedPosition = player.bufferedPosition
@@ -184,11 +197,10 @@ class AudioPlayerService : MediaSessionService() {
         }
 
         override fun onPlaybackParametersChanged(playbackParameters: PlaybackParameters) {
-            // Gérer les changements de vitesse de lecture si nécessaire
+            // Gérer les changements de vitesse si nécessaire
         }
 
         override fun onPlayerError(error: PlaybackException) {
-            // Gérer les erreurs de lecture
             error.printStackTrace()
         }
     }
@@ -199,32 +211,19 @@ class AudioPlayerService : MediaSessionService() {
             notification: Notification,
             ongoing: Boolean
         ) {
-            // Mettre à jour la notification si nécessaire
+            if (ongoing) {
+                startForeground(notificationId, notification)
+            }
         }
 
         override fun onNotificationCancelled(notificationId: Int, dismissedByUser: Boolean) {
-            // Gérer l'annulation de la notification
             if (dismissedByUser) {
                 stopSelf()
             }
         }
     }
 
-    private fun getSessionCommands(): MutableSet<SessionCommand> {
-        return mutableSetOf(
-            SessionCommand("androidx.media3.session.command.PLAY_PAUSE", Bundle.EMPTY),
-            SessionCommand("androidx.media3.session.command.PLAY", Bundle.EMPTY),
-            SessionCommand("androidx.media3.session.command.PAUSE", Bundle.EMPTY),
-            SessionCommand("androidx.media3.session.command.SEEK_TO_DEFAULT_POSITION", Bundle.EMPTY),
-            SessionCommand("androidx.media3.session.command.SEEK_TO_NEXT", Bundle.EMPTY),
-            SessionCommand("androidx.media3.session.command.SEEK_TO_PREVIOUS", Bundle.EMPTY),
-            SessionCommand("androidx.media3.session.command.SEEK_TO_POSITION", Bundle.EMPTY),
-            SessionCommand("androidx.media3.session.command.SET_SHUFFLE_MODE", Bundle.EMPTY),
-            SessionCommand("androidx.media3.session.command.SET_REPEAT_MODE", Bundle.EMPTY)
-        )
-    }
     private fun startForegroundService() {
-        // Créer une notification temporaire pour démarrer le service en foreground
         val notification = NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("SonicFlow")
             .setContentText("Music player")
@@ -236,7 +235,7 @@ class AudioPlayerService : MediaSessionService() {
         startForeground(NOTIFICATION_ID, notification)
     }
 
-    // Méthodes pour contrôler la lecture
+    // Méthodes publiques pour contrôler la lecture
     fun playTrack(track: Track) {
         val mediaItem = MediaItem.Builder()
             .setUri(track.uri)
@@ -315,17 +314,9 @@ class AudioPlayerService : MediaSessionService() {
         player.repeatMode = mode
     }
 
-    fun getCurrentPosition(): Long {
-        return player.currentPosition
-    }
-
-    fun getDuration(): Long {
-        return player.duration
-    }
-
-    fun isPlaying(): Boolean {
-        return player.isPlaying
-    }
+    fun getCurrentPosition(): Long = player.currentPosition
+    fun getDuration(): Long = player.duration
+    fun isPlaying(): Boolean = player.isPlaying
 
     inner class MediaSessionCallback : MediaSession.Callback {
         override fun onAddMediaItems(
@@ -333,7 +324,6 @@ class AudioPlayerService : MediaSessionService() {
             controller: MediaSession.ControllerInfo,
             mediaItems: MutableList<MediaItem>
         ): ListenableFuture<MutableList<MediaItem>> {
-            // Tu peux personnaliser la création des MediaItems ici
             val updatedItems = mediaItems.map { mediaItem ->
                 mediaItem.buildUpon()
                     .setUri(mediaItem.requestMetadata.mediaUri)

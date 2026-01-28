@@ -1,4 +1,131 @@
 package com.example.sonicflow.presentation.screen.player
 
-class PlayerViewModel {
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import androidx.media3.common.Player
+import com.example.sonicflow.domain.model.Track
+import com.example.sonicflow.domain.repository.AudioPlayerRepository
+import com.example.sonicflow.domain.repository.TrackRepository
+import com.example.sonicflow.service.AudioPlayerService
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+import javax.inject.Inject
+
+@HiltViewModel
+class PlayerViewModel @Inject constructor(
+    private val audioPlayerRepository: AudioPlayerRepository,
+    private val trackRepository: TrackRepository
+) : ViewModel() {
+
+    private val _currentTrack = MutableStateFlow<Track?>(null)
+    val currentTrack: StateFlow<Track?> = _currentTrack.asStateFlow()
+
+    private val _playbackState = MutableStateFlow(AudioPlayerService.PlaybackState())
+    val playbackState: StateFlow<AudioPlayerService.PlaybackState> = _playbackState.asStateFlow()
+
+    private val _isShuffleEnabled = MutableStateFlow(false)
+    val isShuffleEnabled: StateFlow<Boolean> = _isShuffleEnabled.asStateFlow()
+
+    private val _repeatMode = MutableStateFlow(Player.REPEAT_MODE_OFF)
+    val repeatMode: StateFlow<Int> = _repeatMode.asStateFlow()
+
+    init {
+        observePlaybackState()
+        observeCurrentTrack()
+    }
+
+    private fun observePlaybackState() {
+        viewModelScope.launch {
+            audioPlayerRepository.getPlaybackState().collect { state ->
+                _playbackState.value = state
+            }
+        }
+    }
+
+    private fun observeCurrentTrack() {
+        viewModelScope.launch {
+            audioPlayerRepository.getCurrentPlayingTrack().collect { track ->
+                _currentTrack.value = track
+            }
+        }
+    }
+
+    fun loadTrack(trackId: Long) {
+        viewModelScope.launch {
+            trackRepository.getTrackById(trackId).collect { track ->
+                track?.let {
+                    _currentTrack.value = it
+                }
+            }
+        }
+    }
+
+    fun playTrack(track: Track) {
+        viewModelScope.launch {
+            audioPlayerRepository.playTrack(track)
+        }
+    }
+
+    fun togglePlayPause() {
+        viewModelScope.launch {
+            if (_playbackState.value.isPlaying) {
+                audioPlayerRepository.pause()
+            } else {
+                audioPlayerRepository.resume()
+            }
+        }
+    }
+
+    fun seekTo(position: Long) {
+        viewModelScope.launch {
+            audioPlayerRepository.seekTo(position)
+        }
+    }
+
+    fun skipToNext() {
+        viewModelScope.launch {
+            audioPlayerRepository.skipToNext()
+        }
+    }
+
+    fun skipToPrevious() {
+        viewModelScope.launch {
+            audioPlayerRepository.skipToPrevious()
+        }
+    }
+
+    fun toggleShuffle() {
+        viewModelScope.launch {
+            val newShuffleState = !_isShuffleEnabled.value
+            _isShuffleEnabled.value = newShuffleState
+            audioPlayerRepository.setShuffleModeEnabled(newShuffleState)
+        }
+    }
+
+    fun toggleRepeatMode() {
+        viewModelScope.launch {
+            val newRepeatMode = when (_repeatMode.value) {
+                Player.REPEAT_MODE_OFF -> Player.REPEAT_MODE_ALL
+                Player.REPEAT_MODE_ALL -> Player.REPEAT_MODE_ONE
+                else -> Player.REPEAT_MODE_OFF
+            }
+            _repeatMode.value = newRepeatMode
+            audioPlayerRepository.setRepeatMode(newRepeatMode)
+        }
+    }
+
+    fun formatDuration(millis: Long): String {
+        val seconds = (millis / 1000) % 60
+        val minutes = (millis / (1000 * 60)) % 60
+        val hours = millis / (1000 * 60 * 60)
+
+        return if (hours > 0) {
+            String.format("%d:%02d:%02d", hours, minutes, seconds)
+        } else {
+            String.format("%d:%02d", minutes, seconds)
+        }
+    }
 }
