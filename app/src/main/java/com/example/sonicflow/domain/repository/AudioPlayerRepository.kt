@@ -1,13 +1,14 @@
 package com.example.sonicflow.domain.repository
 
+import com.example.sonicflow.domain.model.PlaybackState
 import com.example.sonicflow.domain.model.Track
-import com.example.sonicflow.service.AudioPlayerService
 import kotlinx.coroutines.flow.Flow
 
 interface AudioPlayerRepository {
-    fun getPlaybackState(): Flow<AudioPlayerService.PlaybackState>
+    fun getPlaybackState(): Flow<PlaybackState>
     fun getCurrentPlayingTrack(): Flow<Track?>
     suspend fun playTrack(track: Track)
+    suspend fun playTrackList(tracks: List<Track>, startIndex: Int = 0)
     suspend fun playPlaylist(playlistId: Long, startIndex: Int = 0)
     suspend fun pause()
     suspend fun resume()

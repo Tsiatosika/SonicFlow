@@ -14,7 +14,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.compose.NavHost
@@ -48,7 +47,6 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        // Vérifier et demander les permissions
         checkAndRequestPermissions()
 
         setContent {
@@ -68,11 +66,9 @@ class MainActivity : ComponentActivity() {
                 this,
                 permission
             ) == PackageManager.PERMISSION_GRANTED -> {
-                // Permission déjà accordée
                 android.util.Log.d("MainActivity", "Permission already granted")
             }
             shouldShowRequestPermissionRationale(permission) -> {
-                // Expliquer pourquoi l'app a besoin de cette permission
                 Toast.makeText(
                     this,
                     "Cette permission est nécessaire pour lire vos fichiers audio",
@@ -81,7 +77,6 @@ class MainActivity : ComponentActivity() {
                 requestPermissionLauncher.launch(permission)
             }
             else -> {
-                // Demander la permission
                 requestPermissionLauncher.launch(permission)
             }
         }
@@ -113,6 +108,9 @@ fun AppNavigation() {
             LibraryScreen(
                 viewModel = viewModel,
                 onTrackClick = { track ->
+                    // Lancer la playlist à partir de ce morceau
+                    viewModel.playTrackFromList(track)
+                    // Naviguer vers l'écran Player
                     navController.navigate("${Screen.Player.route}/${track.id}")
                 },
                 onPlaylistClick = {
@@ -141,17 +139,4 @@ sealed class Screen(val route: String) {
     object Library : Screen("library")
     object Playlists : Screen("playlists")
     object Player : Screen("player")
-}
-
-@Preview(showBackground = true)
-@Composable
-fun SonicFlowAppPreview() {
-    SonicFlowTheme {
-        Surface(
-            modifier = Modifier.fillMaxSize(),
-            color = MaterialTheme.colorScheme.background
-        ) {
-            // Prévisualisation simple
-        }
-    }
 }

@@ -69,6 +69,15 @@ class AudioPlayerServiceConnection @Inject constructor(
         }
     }
 
+    fun playTrackList(tracks: List<Track>, startIndex: Int = 0) {
+        if (service != null) {
+            android.util.Log.d("ServiceConnection", "Playing track list with ${tracks.size} tracks, starting at $startIndex")
+            service?.playTrackList(tracks, startIndex)
+        } else {
+            android.util.Log.e("ServiceConnection", "Service not available - cannot play track list")
+        }
+    }
+
     fun pause() {
         service?.pause()
     }
@@ -82,10 +91,12 @@ class AudioPlayerServiceConnection @Inject constructor(
     }
 
     fun skipToNext() {
+        android.util.Log.d("ServiceConnection", "Calling skipToNext")
         service?.skipToNext()
     }
 
     fun skipToPrevious() {
+        android.util.Log.d("ServiceConnection", "Calling skipToPrevious")
         service?.skipToPrevious()
     }
 

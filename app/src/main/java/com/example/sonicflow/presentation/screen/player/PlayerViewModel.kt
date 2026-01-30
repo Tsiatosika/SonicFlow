@@ -3,11 +3,10 @@ package com.example.sonicflow.presentation.screen.player
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.media3.common.Player
-import androidx.media3.common.util.UnstableApi
+import com.example.sonicflow.domain.model.PlaybackState
 import com.example.sonicflow.domain.model.Track
 import com.example.sonicflow.domain.repository.AudioPlayerRepository
 import com.example.sonicflow.domain.repository.TrackRepository
-import com.example.sonicflow.service.AudioPlayerService
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -15,7 +14,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-@UnstableApi @HiltViewModel
+@HiltViewModel
 class PlayerViewModel @Inject constructor(
     private val audioPlayerRepository: AudioPlayerRepository,
     private val trackRepository: TrackRepository
@@ -24,8 +23,8 @@ class PlayerViewModel @Inject constructor(
     private val _currentTrack = MutableStateFlow<Track?>(null)
     val currentTrack: StateFlow<Track?> = _currentTrack.asStateFlow()
 
-    private val _playbackState = MutableStateFlow(AudioPlayerService.PlaybackState())
-    val playbackState: StateFlow<AudioPlayerService.PlaybackState> = _playbackState.asStateFlow()
+    private val _playbackState = MutableStateFlow(PlaybackState())
+    val playbackState: StateFlow<PlaybackState> = _playbackState.asStateFlow()
 
     private val _isShuffleEnabled = MutableStateFlow(false)
     val isShuffleEnabled: StateFlow<Boolean> = _isShuffleEnabled.asStateFlow()
@@ -65,8 +64,6 @@ class PlayerViewModel @Inject constructor(
                 track?.let {
                     android.util.Log.d("PlayerViewModel", "Track found: ${it.title}, URI: ${it.uri}")
                     _currentTrack.value = it
-                    // Lancer automatiquement la lecture
-                    playTrack(it)
                 }
             }
         }

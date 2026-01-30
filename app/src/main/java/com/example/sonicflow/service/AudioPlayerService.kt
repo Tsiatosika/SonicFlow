@@ -7,7 +7,6 @@ import android.app.PendingIntent
 import android.content.Intent
 import android.os.Binder
 import android.os.Build
-import android.os.Bundle
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import androidx.media3.common.MediaItem
@@ -25,8 +24,14 @@ import com.example.sonicflow.R
 import com.example.sonicflow.domain.model.Track
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 
 @UnstableApi
 class AudioPlayerService : MediaSessionService() {
@@ -34,6 +39,7 @@ class AudioPlayerService : MediaSessionService() {
     companion object {
         private const val NOTIFICATION_ID = 101
         private const val CHANNEL_ID = "music_channel"
+        private const val POSITION_UPDATE_INTERVAL = 500L // Mise à jour toutes les 500ms
     }
 
     private lateinit var mediaSession: MediaSession
@@ -41,6 +47,8 @@ class AudioPlayerService : MediaSessionService() {
     private lateinit var notificationManager: PlayerNotificationManager
 
     private val binder = AudioPlayerBinder()
+    private val serviceScope = CoroutineScope(Dispatchers.Main + Job())
+    private var positionUpdateJob: Job? = null
 
     // Les StateFlows pour exposer l'état
     private val _playbackState = MutableStateFlow(PlaybackState())
@@ -92,6 +100,9 @@ class AudioPlayerService : MediaSessionService() {
 
         // Démarrer le service en foreground
         startForegroundService()
+
+        // Démarrer la mise à jour de position
+        startPositionUpdate()
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession {
@@ -99,6 +110,7 @@ class AudioPlayerService : MediaSessionService() {
     }
 
     override fun onDestroy() {
+        positionUpdateJob?.cancel()
         player.removeListener(playerListener)
         notificationManager.setPlayer(null)
         mediaSession.release()
@@ -167,19 +179,36 @@ class AudioPlayerService : MediaSessionService() {
         player.addListener(playerListener)
     }
 
+    private fun startPositionUpdate() {
+        positionUpdateJob = serviceScope.launch {
+            while (isActive) {
+                if (player.isPlaying) {
+                    updatePlaybackState()
+                }
+                delay(POSITION_UPDATE_INTERVAL)
+            }
+        }
+    }
+
+    private fun updatePlaybackState() {
+        _playbackState.value = _playbackState.value.copy(
+            currentPosition = player.currentPosition,
+            duration = if (player.duration > 0) player.duration else _currentPlayingTrack.value?.duration ?: 0L,
+            bufferedPosition = player.bufferedPosition,
+            isPlaying = player.isPlaying
+        )
+    }
+
     private val playerListener = object : Player.Listener {
         override fun onPlaybackStateChanged(playbackState: Int) {
-            _playbackState.value = _playbackState.value.copy(
-                playbackState = playbackState,
-                isPlaying = playbackState == Player.STATE_READY && player.isPlaying,
-                currentPosition = player.currentPosition,
-                duration = player.duration,
-                bufferedPosition = player.bufferedPosition
-            )
+            updatePlaybackState()
+            _playbackState.value = _playbackState.value.copy(playbackState = playbackState)
+            android.util.Log.d("AudioPlayerService", "Playback state changed: $playbackState")
         }
 
         override fun onIsPlayingChanged(isPlaying: Boolean) {
-            _playbackState.value = _playbackState.value.copy(isPlaying = isPlaying)
+            updatePlaybackState()
+            android.util.Log.d("AudioPlayerService", "Is playing: $isPlaying")
         }
 
         override fun onPositionDiscontinuity(
@@ -187,13 +216,11 @@ class AudioPlayerService : MediaSessionService() {
             newPosition: Player.PositionInfo,
             reason: Int
         ) {
-            _playbackState.value = _playbackState.value.copy(
-                currentPosition = player.currentPosition
-            )
+            updatePlaybackState()
         }
 
         override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
-            _playbackState.value = _playbackState.value.copy(isPlaying = playWhenReady)
+            updatePlaybackState()
         }
 
         override fun onPlaybackParametersChanged(playbackParameters: PlaybackParameters) {
@@ -203,6 +230,12 @@ class AudioPlayerService : MediaSessionService() {
         override fun onPlayerError(error: PlaybackException) {
             error.printStackTrace()
             android.util.Log.e("AudioPlayerService", "Playback error", error)
+        }
+
+        override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+            // Quand on passe au morceau suivant
+            updatePlaybackState()
+            android.util.Log.d("AudioPlayerService", "Media item transition: ${mediaItem?.mediaMetadata?.title}")
         }
     }
 
@@ -238,7 +271,7 @@ class AudioPlayerService : MediaSessionService() {
 
     // Méthodes publiques pour contrôler la lecture
     fun playTrack(track: Track) {
-        android.util.Log.d("AudioPlayerService", "Playing track: ${track.title}")
+        android.util.Log.d("AudioPlayerService", "Playing track: ${track.title}, Duration: ${track.duration}, URI: ${track.uri}")
 
         val mediaItem = MediaItem.Builder()
             .setUri(track.uri)
@@ -278,9 +311,8 @@ class AudioPlayerService : MediaSessionService() {
                 .build()
         }
 
-        player.setMediaItems(mediaItems)
+        player.setMediaItems(mediaItems, startIndex, 0L)
         player.prepare()
-        player.seekTo(startIndex, 0L)
         player.playWhenReady = true
 
         _currentPlayingTrack.value = tracks.getOrNull(startIndex)
@@ -288,25 +320,33 @@ class AudioPlayerService : MediaSessionService() {
 
     fun pause() {
         player.pause()
-        _playbackState.value = _playbackState.value.copy(isPlaying = false)
+        updatePlaybackState()
     }
 
     fun resume() {
         player.play()
-        _playbackState.value = _playbackState.value.copy(isPlaying = true)
+        updatePlaybackState()
     }
 
     fun seekTo(position: Long) {
         player.seekTo(position)
-        _playbackState.value = _playbackState.value.copy(currentPosition = position)
+        updatePlaybackState()
     }
 
     fun skipToNext() {
-        player.seekToNext()
+        if (player.hasNextMediaItem()) {
+            player.seekToNextMediaItem()
+            player.play()
+            updatePlaybackState()
+        }
     }
 
     fun skipToPrevious() {
-        player.seekToPrevious()
+        if (player.hasPreviousMediaItem()) {
+            player.seekToPreviousMediaItem()
+            player.play()
+            updatePlaybackState()
+        }
     }
 
     fun setShuffleModeEnabled(enabled: Boolean) {

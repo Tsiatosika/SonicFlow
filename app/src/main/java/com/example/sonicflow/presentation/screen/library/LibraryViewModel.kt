@@ -3,6 +3,7 @@ package com.example.sonicflow.presentation.screen.library
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.sonicflow.domain.model.Track
+import com.example.sonicflow.domain.repository.AudioPlayerRepository
 import com.example.sonicflow.domain.repository.TrackRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -13,7 +14,8 @@ import javax.inject.Inject
 
 @HiltViewModel
 class LibraryViewModel @Inject constructor(
-    private val trackRepository: TrackRepository
+    private val trackRepository: TrackRepository,
+    private val audioPlayerRepository: AudioPlayerRepository
 ) : ViewModel() {
 
     private val _tracks = MutableStateFlow<List<Track>>(emptyList())
@@ -29,7 +31,6 @@ class LibraryViewModel @Inject constructor(
 
     init {
         observeTracks()
-        // Le scan initial sera déclenché après la première collection
     }
 
     private fun observeTracks() {
@@ -38,7 +39,6 @@ class LibraryViewModel @Inject constructor(
                 android.util.Log.d("LibraryViewModel", "Tracks updated: ${trackList.size}")
                 _tracks.value = trackList
 
-                // Scanner automatiquement si la DB est vide au premier chargement
                 if (!isInitialized && trackList.isEmpty()) {
                     isInitialized = true
                     android.util.Log.d("LibraryViewModel", "First load - DB empty, triggering scan")
@@ -51,7 +51,6 @@ class LibraryViewModel @Inject constructor(
     }
 
     fun loadTracks() {
-        // Force un refresh
         refreshTracks()
     }
 
@@ -81,7 +80,6 @@ class LibraryViewModel @Inject constructor(
                         _tracks.value = results
                     }
                 } else {
-                    // Revenir à tous les morceaux
                     trackRepository.getAllTracks().collect { trackList ->
                         _tracks.value = trackList
                     }
@@ -90,6 +88,32 @@ class LibraryViewModel @Inject constructor(
                 android.util.Log.e("LibraryViewModel", "Search error", e)
                 _error.value = "Search failed: ${e.message}"
             }
+        }
+    }
+
+    // Nouvelle fonction pour lancer une playlist à partir d'un morceau sélectionné
+    fun playTrackFromList(selectedTrack: Track) {
+        viewModelScope.launch {
+            val allTracks = _tracks.value
+            if (allTracks.isNotEmpty()) {
+                val startIndex = allTracks.indexOfFirst { it.id == selectedTrack.id }
+                if (startIndex >= 0) {
+                    android.util.Log.d("LibraryViewModel", "Playing playlist from index $startIndex, total tracks: ${allTracks.size}")
+                    playPlaylist(allTracks, startIndex)
+                } else {
+                    android.util.Log.e("LibraryViewModel", "Track not found in list")
+                }
+            }
+        }
+    }
+
+    private suspend fun playPlaylist(tracks: List<Track>, startIndex: Int) {
+        try {
+            android.util.Log.d("LibraryViewModel", "Starting playlist with ${tracks.size} tracks at index $startIndex")
+            audioPlayerRepository.playTrackList(tracks, startIndex)
+        } catch (e: Exception) {
+            android.util.Log.e("LibraryViewModel", "Error playing playlist", e)
+            _error.value = "Failed to play: ${e.message}"
         }
     }
 }
