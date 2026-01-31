@@ -39,7 +39,7 @@ class AudioPlayerService : MediaSessionService() {
     companion object {
         private const val NOTIFICATION_ID = 101
         private const val CHANNEL_ID = "music_channel"
-        private const val POSITION_UPDATE_INTERVAL = 500L // Mise à jour toutes les 500ms
+        private const val POSITION_UPDATE_INTERVAL = 500L
     }
 
     private lateinit var mediaSession: MediaSession
@@ -49,6 +49,9 @@ class AudioPlayerService : MediaSessionService() {
     private val binder = AudioPlayerBinder()
     private val serviceScope = CoroutineScope(Dispatchers.Main + Job())
     private var positionUpdateJob: Job? = null
+
+    // Liste des tracks pour retrouver le track actuel
+    private var currentTrackList: List<Track> = emptyList()
 
     // Les StateFlows pour exposer l'état
     private val _playbackState = MutableStateFlow(PlaybackState())
@@ -65,7 +68,6 @@ class AudioPlayerService : MediaSessionService() {
         val playbackState: Int = Player.STATE_IDLE
     )
 
-    // Binder pour permettre la connexion au service
     inner class AudioPlayerBinder : Binder() {
         fun getService(): AudioPlayerService = this@AudioPlayerService
     }
@@ -78,30 +80,20 @@ class AudioPlayerService : MediaSessionService() {
     override fun onCreate() {
         super.onCreate()
 
-        // Initialiser le player
         player = ExoPlayer.Builder(this)
             .setSeekBackIncrementMs(15000)
             .setSeekForwardIncrementMs(30000)
             .build()
 
-        // Configurer les listeners du player
         setupPlayerListeners()
-
-        // Créer le canal de notification
         createNotificationChannel()
-
-        // Configurer le gestionnaire de notifications
         setupNotificationManager()
 
-        // Créer la MediaSession
         mediaSession = MediaSession.Builder(this, player)
             .setCallback(MediaSessionCallback())
             .build()
 
-        // Démarrer le service en foreground
         startForegroundService()
-
-        // Démarrer la mise à jour de position
         startPositionUpdate()
     }
 
@@ -199,6 +191,16 @@ class AudioPlayerService : MediaSessionService() {
         )
     }
 
+    private fun updateCurrentTrack() {
+        // Retrouver le track actuel dans la liste
+        val currentIndex = player.currentMediaItemIndex
+        if (currentIndex >= 0 && currentIndex < currentTrackList.size) {
+            val track = currentTrackList[currentIndex]
+            android.util.Log.d("AudioPlayerService", "Updating current track to: ${track.title} (index: $currentIndex)")
+            _currentPlayingTrack.value = track
+        }
+    }
+
     private val playerListener = object : Player.Listener {
         override fun onPlaybackStateChanged(playbackState: Int) {
             updatePlaybackState()
@@ -217,6 +219,11 @@ class AudioPlayerService : MediaSessionService() {
             reason: Int
         ) {
             updatePlaybackState()
+            // Le morceau a changé (Next/Previous)
+            if (oldPosition.mediaItemIndex != newPosition.mediaItemIndex) {
+                android.util.Log.d("AudioPlayerService", "Media item changed from ${oldPosition.mediaItemIndex} to ${newPosition.mediaItemIndex}")
+                updateCurrentTrack()
+            }
         }
 
         override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
@@ -233,9 +240,9 @@ class AudioPlayerService : MediaSessionService() {
         }
 
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
-            // Quand on passe au morceau suivant
-            updatePlaybackState()
-            android.util.Log.d("AudioPlayerService", "Media item transition: ${mediaItem?.mediaMetadata?.title}")
+            // Quand on passe automatiquement au morceau suivant
+            android.util.Log.d("AudioPlayerService", "Media item transition: ${mediaItem?.mediaMetadata?.title}, reason: $reason")
+            updateCurrentTrack()
         }
     }
 
@@ -269,9 +276,11 @@ class AudioPlayerService : MediaSessionService() {
         startForeground(NOTIFICATION_ID, notification)
     }
 
-    // Méthodes publiques pour contrôler la lecture
     fun playTrack(track: Track) {
         android.util.Log.d("AudioPlayerService", "Playing track: ${track.title}, Duration: ${track.duration}, URI: ${track.uri}")
+
+        // Sauvegarder le track dans la liste
+        currentTrackList = listOf(track)
 
         val mediaItem = MediaItem.Builder()
             .setUri(track.uri)
@@ -297,6 +306,11 @@ class AudioPlayerService : MediaSessionService() {
     }
 
     fun playTrackList(tracks: List<Track>, startIndex: Int = 0) {
+        android.util.Log.d("AudioPlayerService", "Playing track list: ${tracks.size} tracks, starting at index $startIndex")
+
+        // Sauvegarder la liste complète des tracks
+        currentTrackList = tracks
+
         val mediaItems = tracks.map { track ->
             MediaItem.Builder()
                 .setUri(track.uri)
@@ -315,7 +329,9 @@ class AudioPlayerService : MediaSessionService() {
         player.prepare()
         player.playWhenReady = true
 
+        // Mettre à jour le track actuel
         _currentPlayingTrack.value = tracks.getOrNull(startIndex)
+        android.util.Log.d("AudioPlayerService", "Initial track: ${_currentPlayingTrack.value?.title}")
     }
 
     fun pause() {
@@ -334,18 +350,26 @@ class AudioPlayerService : MediaSessionService() {
     }
 
     fun skipToNext() {
+        android.util.Log.d("AudioPlayerService", "Skip to next called, current index: ${player.currentMediaItemIndex}, has next: ${player.hasNextMediaItem()}")
         if (player.hasNextMediaItem()) {
             player.seekToNextMediaItem()
             player.play()
+            updateCurrentTrack()
             updatePlaybackState()
+        } else {
+            android.util.Log.w("AudioPlayerService", "No next item available")
         }
     }
 
     fun skipToPrevious() {
+        android.util.Log.d("AudioPlayerService", "Skip to previous called, current index: ${player.currentMediaItemIndex}, has previous: ${player.hasPreviousMediaItem()}")
         if (player.hasPreviousMediaItem()) {
             player.seekToPreviousMediaItem()
             player.play()
+            updateCurrentTrack()
             updatePlaybackState()
+        } else {
+            android.util.Log.w("AudioPlayerService", "No previous item available")
         }
     }
 
