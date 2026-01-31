@@ -28,6 +28,7 @@ class LibraryViewModel @Inject constructor(
     val error: StateFlow<String?> = _error.asStateFlow()
 
     private var isInitialized = false
+    private var isSearching = false
 
     init {
         observeTracks()
@@ -36,15 +37,18 @@ class LibraryViewModel @Inject constructor(
     private fun observeTracks() {
         viewModelScope.launch {
             trackRepository.getAllTracks().collect { trackList ->
-                android.util.Log.d("LibraryViewModel", "Tracks updated: ${trackList.size}")
-                _tracks.value = trackList
+                // Ne mettre à jour que si on n'est pas en mode recherche
+                if (!isSearching) {
+                    android.util.Log.d("LibraryViewModel", "Tracks updated: ${trackList.size}")
+                    _tracks.value = trackList
 
-                if (!isInitialized && trackList.isEmpty()) {
-                    isInitialized = true
-                    android.util.Log.d("LibraryViewModel", "First load - DB empty, triggering scan")
-                    refreshTracks()
-                } else if (!isInitialized) {
-                    isInitialized = true
+                    if (!isInitialized && trackList.isEmpty()) {
+                        isInitialized = true
+                        android.util.Log.d("LibraryViewModel", "First load - DB empty, triggering scan")
+                        refreshTracks()
+                    } else if (!isInitialized) {
+                        isInitialized = true
+                    }
                 }
             }
         }
@@ -58,6 +62,7 @@ class LibraryViewModel @Inject constructor(
         viewModelScope.launch {
             _isLoading.value = true
             _error.value = null
+            isSearching = false
 
             try {
                 android.util.Log.d("LibraryViewModel", "Starting track refresh...")
@@ -75,13 +80,13 @@ class LibraryViewModel @Inject constructor(
     fun searchTracks(query: String) {
         viewModelScope.launch {
             try {
+                isSearching = true
+                android.util.Log.d("LibraryViewModel", "Searching for: $query")
+
                 if (query.isNotEmpty()) {
                     trackRepository.searchTracks(query).collect { results ->
                         _tracks.value = results
-                    }
-                } else {
-                    trackRepository.getAllTracks().collect { trackList ->
-                        _tracks.value = trackList
+                        android.util.Log.d("LibraryViewModel", "Search results: ${results.size}")
                     }
                 }
             } catch (e: Exception) {
@@ -91,7 +96,18 @@ class LibraryViewModel @Inject constructor(
         }
     }
 
-    // Nouvelle fonction pour lancer une playlist à partir d'un morceau sélectionné
+    fun clearSearch() {
+        viewModelScope.launch {
+            android.util.Log.d("LibraryViewModel", "Clearing search")
+            isSearching = false
+            // Recharger tous les morceaux
+            trackRepository.getAllTracks().collect { trackList ->
+                _tracks.value = trackList
+            }
+        }
+    }
+
+    // Fonction pour lancer une playlist à partir d'un morceau sélectionné
     fun playTrackFromList(selectedTrack: Track) {
         viewModelScope.launch {
             val allTracks = _tracks.value
