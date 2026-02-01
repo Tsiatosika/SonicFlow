@@ -19,9 +19,9 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.example.sonicflow.domain.model.Playlist
 import com.example.sonicflow.domain.model.Track
 import kotlinx.coroutines.delay
-
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -33,14 +33,25 @@ fun LibraryScreen(
     val tracks by viewModel.tracks.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val error by viewModel.error.collectAsState()
+    val playlists by viewModel.playlists.collectAsState()
 
     var isSearchActive by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
     val focusRequester = remember { FocusRequester() }
 
+    var selectedTrack by remember { mutableStateOf<Track?>(null) }
+    var showPlaylistDialog by remember { mutableStateOf(false) }
+    var showCreatePlaylistDialog by remember { mutableStateOf(false) }
+    var newPlaylistName by remember { mutableStateOf("") }
+
+    // Charger les playlists au démarrage
+    LaunchedEffect(Unit) {
+        viewModel.loadPlaylists()
+    }
+
     // Lancer la recherche quand la query change
     LaunchedEffect(searchQuery) {
-        delay(300) // Debounce de 300ms
+        delay(300)
         if (searchQuery.isNotEmpty()) {
             viewModel.searchTracks(searchQuery)
         } else {
@@ -71,7 +82,6 @@ fun LibraryScreen(
                 )
             }
 
-            // Barre de recherche
             AnimatedVisibility(
                 visible = isSearchActive,
                 enter = fadeIn() + slideInVertically(),
@@ -124,7 +134,6 @@ fun LibraryScreen(
                     }
                 }
                 tracks.isEmpty() && searchQuery.isNotEmpty() -> {
-                    // Aucun résultat de recherche
                     Column(
                         modifier = Modifier.align(Alignment.Center),
                         horizontalAlignment = Alignment.CenterHorizontally
@@ -146,7 +155,6 @@ fun LibraryScreen(
                     }
                 }
                 tracks.isEmpty() -> {
-                    // Bibliothèque vide
                     Column(
                         modifier = Modifier.align(Alignment.Center),
                         horizontalAlignment = Alignment.CenterHorizontally
@@ -176,7 +184,6 @@ fun LibraryScreen(
                         modifier = Modifier.fillMaxSize(),
                         verticalArrangement = Arrangement.spacedBy(1.dp)
                     ) {
-                        // Afficher le nombre de résultats si recherche active
                         if (searchQuery.isNotEmpty()) {
                             item {
                                 Surface(
@@ -197,6 +204,10 @@ fun LibraryScreen(
                             TrackItem(
                                 track = track,
                                 onClick = { onTrackClick(track) },
+                                onMoreClick = {
+                                    selectedTrack = track
+                                    showPlaylistDialog = true
+                                },
                                 searchQuery = searchQuery
                             )
                         }
@@ -206,12 +217,45 @@ fun LibraryScreen(
         }
     }
 
-
     LaunchedEffect(isSearchActive) {
         if (isSearchActive) {
             delay(100)
             focusRequester.requestFocus()
         }
+    }
+
+    // Dialog pour choisir une playlist
+    if (showPlaylistDialog && selectedTrack != null) {
+        AddToPlaylistDialog(
+            track = selectedTrack!!,
+            playlists = playlists,
+            onDismiss = { showPlaylistDialog = false },
+            onPlaylistSelected = { playlist ->
+                viewModel.addTrackToPlaylist(playlist.id, selectedTrack!!.id)
+                showPlaylistDialog = false
+            },
+            onCreateNew = {
+                showPlaylistDialog = false
+                showCreatePlaylistDialog = true
+            }
+        )
+    }
+
+    // Dialog pour créer une nouvelle playlist
+    if (showCreatePlaylistDialog && selectedTrack != null) {
+        CreatePlaylistDialog(
+            playlistName = newPlaylistName,
+            onNameChange = { newPlaylistName = it },
+            onDismiss = {
+                showCreatePlaylistDialog = false
+                newPlaylistName = ""
+            },
+            onConfirm = {
+                viewModel.createPlaylistAndAddTrack(newPlaylistName, selectedTrack!!.id)
+                showCreatePlaylistDialog = false
+                newPlaylistName = ""
+            }
+        )
     }
 }
 
@@ -261,6 +305,7 @@ fun SearchBar(
 fun TrackItem(
     track: Track,
     onClick: () -> Unit,
+    onMoreClick: () -> Unit,
     searchQuery: String = "",
     modifier: Modifier = Modifier
 ) {
@@ -309,9 +354,151 @@ fun TrackItem(
                 )
             }
 
-            IconButton(onClick = { /* TODO: More options */ }) {
-                Icon(Icons.Default.MoreVert, contentDescription = "More")
+            IconButton(onClick = onMoreClick) {
+                Icon(Icons.Default.MoreVert, contentDescription = "More options")
             }
         }
     }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun AddToPlaylistDialog(
+    track: Track,
+    playlists: List<Playlist>,
+    onDismiss: () -> Unit,
+    onPlaylistSelected: (Playlist) -> Unit,
+    onCreateNew: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Column {
+                Text("Ajouter à une playlist")
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = track.title,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        },
+        text = {
+            Column {
+                if (playlists.isEmpty()) {
+                    Text(
+                        "Aucune playlist disponible",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.heightIn(max = 300.dp)
+                    ) {
+                        items(playlists) { playlist ->
+                            Card(
+                                onClick = { onPlaylistSelected(playlist) },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.surfaceVariant
+                                )
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(16.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Default.PlaylistPlay,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary
+                                    )
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = playlist.name,
+                                            style = MaterialTheme.typography.titleSmall
+                                        )
+                                        Text(
+                                            text = "${playlist.trackCount} morceaux",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                    Icon(
+                                        Icons.Default.Add,
+                                        contentDescription = "Add",
+                                        tint = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Button(
+                    onClick = onCreateNew,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = null)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Créer une nouvelle playlist")
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Annuler")
+            }
+        }
+    )
+}
+
+@Composable
+fun CreatePlaylistDialog(
+    playlistName: String,
+    onNameChange: (String) -> Unit,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Nouvelle playlist") },
+        text = {
+            Column {
+                Text(
+                    "Le morceau sera ajouté à cette playlist",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                OutlinedTextField(
+                    value = playlistName,
+                    onValueChange = onNameChange,
+                    label = { Text("Nom de la playlist") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = onConfirm,
+                enabled = playlistName.isNotBlank()
+            ) {
+                Text("Créer")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Annuler")
+            }
+        }
+    )
 }

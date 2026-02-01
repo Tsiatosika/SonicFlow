@@ -16,12 +16,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.example.sonicflow.presentation.screen.library.LibraryScreen
 import com.example.sonicflow.presentation.screen.library.LibraryViewModel
 import com.example.sonicflow.presentation.screen.player.PlayerScreen
+import com.example.sonicflow.presentation.screen.playlist.PlaylistDetailScreen
 import com.example.sonicflow.presentation.screen.playlist.PlaylistScreen
 import com.example.sonicflow.presentation.theme.SonicFlowTheme
 import dagger.hilt.android.AndroidEntryPoint
@@ -108,9 +111,7 @@ fun AppNavigation() {
             LibraryScreen(
                 viewModel = viewModel,
                 onTrackClick = { track ->
-                    // Lancer la playlist à partir de ce morceau
                     viewModel.playTrackFromList(track)
-                    // Naviguer vers l'écran Player
                     navController.navigate("${Screen.Player.route}/${track.id}")
                 },
                 onPlaylistClick = {
@@ -121,7 +122,26 @@ fun AppNavigation() {
 
         composable(Screen.Playlists.route) {
             PlaylistScreen(
-                onBackClick = { navController.navigateUp() }
+                onBackClick = { navController.navigateUp() },
+                onPlaylistClick = { playlistId ->
+                    navController.navigate("${Screen.PlaylistDetail.route}/$playlistId")
+                }
+            )
+        }
+
+        composable(
+            route = "${Screen.PlaylistDetail.route}/{playlistId}",
+            arguments = listOf(
+                navArgument("playlistId") { type = NavType.LongType }
+            )
+        ) { backStackEntry ->
+            val playlistId = backStackEntry.arguments?.getLong("playlistId") ?: 0L
+            PlaylistDetailScreen(
+                playlistId = playlistId,
+                onBackClick = { navController.navigateUp() },
+                onTrackClick = { track ->
+                    navController.navigate("${Screen.Player.route}/${track.id}")
+                }
             )
         }
 
@@ -138,5 +158,6 @@ fun AppNavigation() {
 sealed class Screen(val route: String) {
     object Library : Screen("library")
     object Playlists : Screen("playlists")
+    object PlaylistDetail : Screen("playlist_detail")
     object Player : Screen("player")
 }

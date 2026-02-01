@@ -1,6 +1,5 @@
 package com.example.sonicflow.presentation.screen.playlist
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -13,11 +12,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.sonicflow.domain.model.Playlist
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PlaylistScreen(
     onBackClick: () -> Unit,
+    onPlaylistClick: (Long) -> Unit,  // Navigation vers les détails
     viewModel: PlaylistViewModel = hiltViewModel()
 ) {
     val playlists by viewModel.playlists.collectAsState()
@@ -90,10 +91,10 @@ fun PlaylistScreen(
                             tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                         )
                         Spacer(modifier = Modifier.height(16.dp))
-                        Text("No playlists yet")
+                        Text("Aucune playlist")
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            "Tap + to create your first playlist",
+                            "Appuyez sur + pour créer votre première playlist",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                         )
@@ -109,7 +110,7 @@ fun PlaylistScreen(
                             PlaylistItem(
                                 playlist = playlist,
                                 onClick = {
-                                    viewModel.loadPlaylistWithTracks(playlist.id)
+                                    onPlaylistClick(playlist.id)  // Navigation vers les détails
                                 },
                                 onDeleteClick = {
                                     viewModel.deletePlaylist(playlist.id)
@@ -129,12 +130,12 @@ fun PlaylistScreen(
                 showCreateDialog = false
                 playlistName = ""
             },
-            title = { Text("Create Playlist") },
+            title = { Text("Créer une playlist") },
             text = {
                 OutlinedTextField(
                     value = playlistName,
                     onValueChange = { playlistName = it },
-                    label = { Text("Playlist Name") },
+                    label = { Text("Nom de la playlist") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -150,7 +151,7 @@ fun PlaylistScreen(
                     },
                     enabled = playlistName.isNotBlank()
                 ) {
-                    Text("Create")
+                    Text("Créer")
                 }
             },
             dismissButton = {
@@ -160,7 +161,7 @@ fun PlaylistScreen(
                         playlistName = ""
                     }
                 ) {
-                    Text("Cancel")
+                    Text("Annuler")
                 }
             }
         )
@@ -170,7 +171,7 @@ fun PlaylistScreen(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PlaylistItem(
-    playlist: com.example.sonicflow.domain.model.Playlist,
+    playlist: Playlist,
     onClick: () -> Unit,
     onDeleteClick: () -> Unit,
     modifier: Modifier = Modifier
@@ -189,8 +190,7 @@ fun PlaylistItem(
         ) {
             // Playlist Icon
             Box(
-                modifier = Modifier
-                    .size(56.dp),
+                modifier = Modifier.size(56.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Surface(
@@ -225,7 +225,7 @@ fun PlaylistItem(
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "${playlist.trackCount} tracks",
+                    text = "${playlist.trackCount} morceau${if (playlist.trackCount > 1) "x" else ""}",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
                 )
@@ -248,8 +248,8 @@ fun PlaylistItem(
     if (showDeleteDialog) {
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
-            title = { Text("Delete Playlist") },
-            text = { Text("Are you sure you want to delete \"${playlist.name}\"?") },
+            title = { Text("Supprimer la playlist") },
+            text = { Text("Voulez-vous vraiment supprimer \"${playlist.name}\" ?") },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -257,12 +257,12 @@ fun PlaylistItem(
                         showDeleteDialog = false
                     }
                 ) {
-                    Text("Delete", color = MaterialTheme.colorScheme.error)
+                    Text("Supprimer", color = MaterialTheme.colorScheme.error)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteDialog = false }) {
-                    Text("Cancel")
+                    Text("Annuler")
                 }
             }
         )

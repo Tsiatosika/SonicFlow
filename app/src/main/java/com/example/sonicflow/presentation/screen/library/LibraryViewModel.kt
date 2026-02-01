@@ -2,8 +2,10 @@ package com.example.sonicflow.presentation.screen.library
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.sonicflow.domain.model.Playlist
 import com.example.sonicflow.domain.model.Track
 import com.example.sonicflow.domain.repository.AudioPlayerRepository
+import com.example.sonicflow.domain.repository.PlaylistRepository
 import com.example.sonicflow.domain.repository.TrackRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -15,17 +17,24 @@ import javax.inject.Inject
 @HiltViewModel
 class LibraryViewModel @Inject constructor(
     private val trackRepository: TrackRepository,
-    private val audioPlayerRepository: AudioPlayerRepository
+    private val audioPlayerRepository: AudioPlayerRepository,
+    private val playlistRepository: PlaylistRepository
 ) : ViewModel() {
 
     private val _tracks = MutableStateFlow<List<Track>>(emptyList())
     val tracks: StateFlow<List<Track>> = _tracks.asStateFlow()
+
+    private val _playlists = MutableStateFlow<List<Playlist>>(emptyList())
+    val playlists: StateFlow<List<Playlist>> = _playlists.asStateFlow()
 
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
+
+    private val _successMessage = MutableStateFlow<String?>(null)
+    val successMessage: StateFlow<String?> = _successMessage.asStateFlow()
 
     private var isInitialized = false
     private var isSearching = false
@@ -37,7 +46,6 @@ class LibraryViewModel @Inject constructor(
     private fun observeTracks() {
         viewModelScope.launch {
             trackRepository.getAllTracks().collect { trackList ->
-                // Ne mettre à jour que si on n'est pas en mode recherche
                 if (!isSearching) {
                     android.util.Log.d("LibraryViewModel", "Tracks updated: ${trackList.size}")
                     _tracks.value = trackList
@@ -50,6 +58,20 @@ class LibraryViewModel @Inject constructor(
                         isInitialized = true
                     }
                 }
+            }
+        }
+    }
+
+    fun loadPlaylists() {
+        viewModelScope.launch {
+            try {
+                playlistRepository.getAllPlaylists().collect { playlistList ->
+                    _playlists.value = playlistList
+                    android.util.Log.d("LibraryViewModel", "Playlists loaded: ${playlistList.size}")
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("LibraryViewModel", "Error loading playlists", e)
+                _error.value = "Failed to load playlists: ${e.message}"
             }
         }
     }
@@ -100,14 +122,62 @@ class LibraryViewModel @Inject constructor(
         viewModelScope.launch {
             android.util.Log.d("LibraryViewModel", "Clearing search")
             isSearching = false
-            // Recharger tous les morceaux
             trackRepository.getAllTracks().collect { trackList ->
                 _tracks.value = trackList
             }
         }
     }
 
-    // Fonction pour lancer une playlist à partir d'un morceau sélectionné
+    fun addTrackToPlaylist(playlistId: Long, trackId: Long) {
+        viewModelScope.launch {
+            try {
+                android.util.Log.d("LibraryViewModel", "Adding track $trackId to playlist $playlistId")
+                playlistRepository.addTrackToPlaylist(playlistId, trackId)
+
+                // Recharger les playlists pour mettre à jour le compteur
+                loadPlaylists()
+
+                _successMessage.value = "Morceau ajouté à la playlist"
+                android.util.Log.d("LibraryViewModel", "Track added successfully")
+
+                // Effacer le message après 3 secondes
+                kotlinx.coroutines.delay(3000)
+                _successMessage.value = null
+            } catch (e: Exception) {
+                android.util.Log.e("LibraryViewModel", "Error adding track to playlist", e)
+                _error.value = "Échec de l'ajout: ${e.message}"
+            }
+        }
+    }
+
+    fun createPlaylistAndAddTrack(playlistName: String, trackId: Long) {
+        viewModelScope.launch {
+            try {
+                android.util.Log.d("LibraryViewModel", "Creating playlist '$playlistName' and adding track $trackId")
+
+                // Créer la playlist
+                val playlistId = playlistRepository.createPlaylist(playlistName)
+                android.util.Log.d("LibraryViewModel", "Playlist created with ID: $playlistId")
+
+                // Ajouter le morceau
+                playlistRepository.addTrackToPlaylist(playlistId, trackId)
+                android.util.Log.d("LibraryViewModel", "Track added to new playlist")
+
+                // Recharger les playlists
+                loadPlaylists()
+
+                _successMessage.value = "Playlist '$playlistName' créée et morceau ajouté"
+
+                // Effacer le message après 3 secondes
+                kotlinx.coroutines.delay(3000)
+                _successMessage.value = null
+            } catch (e: Exception) {
+                android.util.Log.e("LibraryViewModel", "Error creating playlist", e)
+                _error.value = "Échec de la création: ${e.message}"
+            }
+        }
+    }
+
     fun playTrackFromList(selectedTrack: Track) {
         viewModelScope.launch {
             val allTracks = _tracks.value
@@ -131,5 +201,13 @@ class LibraryViewModel @Inject constructor(
             android.util.Log.e("LibraryViewModel", "Error playing playlist", e)
             _error.value = "Failed to play: ${e.message}"
         }
+    }
+
+    fun clearError() {
+        _error.value = null
+    }
+
+    fun clearSuccessMessage() {
+        _successMessage.value = null
     }
 }
