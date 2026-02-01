@@ -24,18 +24,17 @@ import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun LibraryScreen(
+fun LibraryContent(
     viewModel: LibraryViewModel,
     onTrackClick: (Track) -> Unit,
-    onPlaylistClick: () -> Unit,
-    onFavoritesClick: () -> Unit  // Nouveau callback pour ouvrir les favoris
+    isSearchActive: Boolean,
+    onSearchActiveChange: (Boolean) -> Unit
 ) {
     val tracks by viewModel.tracks.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val error by viewModel.error.collectAsState()
     val playlists by viewModel.playlists.collectAsState()
 
-    var isSearchActive by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
     val focusRequester = remember { FocusRequester() }
 
@@ -57,32 +56,9 @@ fun LibraryScreen(
         }
     }
 
-    Scaffold(
-        topBar = {
-            AnimatedVisibility(
-                visible = !isSearchActive,
-                enter = fadeIn() + slideInVertically(),
-                exit = fadeOut() + slideOutVertically()
-            ) {
-                TopAppBar(
-                    title = { Text("SonicFlow") },
-                    actions = {
-                        IconButton(onClick = { isSearchActive = true }) {
-                            Icon(Icons.Default.Search, contentDescription = "Search")
-                        }
-                        IconButton(onClick = onFavoritesClick) {
-                            Icon(Icons.Default.Favorite, contentDescription = "Favorites")
-                        }
-                        IconButton(onClick = onPlaylistClick) {
-                            Icon(Icons.Default.PlaylistPlay, contentDescription = "Playlists")
-                        }
-                        IconButton(onClick = { viewModel.refreshTracks() }) {
-                            Icon(Icons.Default.Refresh, contentDescription = "Refresh")
-                        }
-                    }
-                )
-            }
-
+    Box(modifier = Modifier.fillMaxSize()) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            // SearchBar
             AnimatedVisibility(
                 visible = isSearchActive,
                 enter = fadeIn() + slideInVertically(),
@@ -92,128 +68,174 @@ fun LibraryScreen(
                     query = searchQuery,
                     onQueryChange = { searchQuery = it },
                     onClose = {
-                        isSearchActive = false
+                        onSearchActiveChange(false)
                         searchQuery = ""
                         viewModel.clearSearch()
                     },
                     focusRequester = focusRequester
                 )
             }
-        }
-    ) { paddingValues ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-        ) {
-            when {
-                isLoading -> {
-                    CircularProgressIndicator(
-                        modifier = Modifier.align(Alignment.Center)
-                    )
-                }
-                error != null -> {
-                    Column(
-                        modifier = Modifier.align(Alignment.Center),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Icon(
-                            Icons.Default.Error,
-                            contentDescription = null,
-                            modifier = Modifier.size(64.dp),
-                            tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f)
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Text(
-                            text = error ?: "Unknown error",
-                            color = MaterialTheme.colorScheme.error
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Button(onClick = { viewModel.loadTracks() }) {
-                            Text("Retry")
-                        }
-                    }
-                }
-                tracks.isEmpty() && searchQuery.isNotEmpty() -> {
-                    Column(
-                        modifier = Modifier.align(Alignment.Center),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Icon(
-                            Icons.Default.SearchOff,
-                            contentDescription = null,
-                            modifier = Modifier.size(64.dp),
-                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Text("Aucun résultat pour \"$searchQuery\"")
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            "Essayez avec un autre terme",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+
+            // Content
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .weight(1f)
+            ) {
+                when {
+                    isLoading -> {
+                        CircularProgressIndicator(
+                            modifier = Modifier.align(Alignment.Center)
                         )
                     }
-                }
-                tracks.isEmpty() -> {
-                    Column(
-                        modifier = Modifier.align(Alignment.Center),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Icon(
-                            Icons.Default.MusicNote,
-                            contentDescription = null,
-                            modifier = Modifier.size(64.dp),
-                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Text("No music found")
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            "Make sure you have music files on your device",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Button(onClick = { viewModel.refreshTracks() }) {
-                            Text("Scan for music")
-                        }
-                    }
-                }
-                else -> {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        verticalArrangement = Arrangement.spacedBy(1.dp)
-                    ) {
-                        if (searchQuery.isNotEmpty()) {
-                            item {
-                                Surface(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    color = MaterialTheme.colorScheme.surfaceVariant
-                                ) {
-                                    Text(
-                                        text = "${tracks.size} résultat${if (tracks.size > 1) "s" else ""}",
-                                        modifier = Modifier.padding(16.dp),
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
+                    error != null -> {
+                        Column(
+                            modifier = Modifier.align(Alignment.Center),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Icon(
+                                Icons.Default.Error,
+                                contentDescription = null,
+                                modifier = Modifier.size(64.dp),
+                                tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f)
+                            )
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Text(
+                                text = error ?: "Unknown error",
+                                color = MaterialTheme.colorScheme.error
+                            )
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Button(onClick = { viewModel.loadTracks() }) {
+                                Text("Retry")
                             }
                         }
-
-                        items(tracks, key = { it.id }) { track ->
-                            TrackItem(
-                                track = track,
-                                onClick = { onTrackClick(track) },
-                                onMoreClick = {
-                                    selectedTrack = track
-                                    showPlaylistDialog = true
-                                },
-                                searchQuery = searchQuery
+                    }
+                    tracks.isEmpty() && searchQuery.isNotEmpty() -> {
+                        Column(
+                            modifier = Modifier.align(Alignment.Center),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Icon(
+                                Icons.Default.SearchOff,
+                                contentDescription = null,
+                                modifier = Modifier.size(64.dp),
+                                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                            )
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Text("Aucun résultat pour \"$searchQuery\"")
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                "Essayez avec un autre terme",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                             )
                         }
                     }
+                    tracks.isEmpty() -> {
+                        Column(
+                            modifier = Modifier.align(Alignment.Center),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Icon(
+                                Icons.Default.MusicNote,
+                                contentDescription = null,
+                                modifier = Modifier.size(64.dp),
+                                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                            )
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Text("No music found")
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                "Make sure you have music files on your device",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                            )
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Button(onClick = { viewModel.refreshTracks() }) {
+                                Text("Scan for music")
+                            }
+                        }
+                    }
+                    else -> {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                            verticalArrangement = Arrangement.spacedBy(1.dp)
+                        ) {
+                            if (searchQuery.isNotEmpty()) {
+                                item {
+                                    Surface(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        color = MaterialTheme.colorScheme.surfaceVariant
+                                    ) {
+                                        Text(
+                                            text = "${tracks.size} résultat${if (tracks.size > 1) "s" else ""}",
+                                            modifier = Modifier.padding(16.dp),
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                            }
+
+                            items(tracks, key = { it.id }) { track ->
+                                TrackItem(
+                                    track = track,
+                                    onClick = { onTrackClick(track) },
+                                    onMoreClick = {
+                                        selectedTrack = track
+                                        showPlaylistDialog = true
+                                    },
+                                    searchQuery = searchQuery
+                                )
+                            }
+                        }
+                    }
                 }
+            }
+        }
+
+        // Dialogs
+        if (showPlaylistDialog && selectedTrack != null) {
+            AddToPlaylistDialog(
+                track = selectedTrack!!,
+                playlists = playlists,
+                onDismiss = { showPlaylistDialog = false },
+                onPlaylistSelected = { playlist ->
+                    viewModel.addTrackToPlaylist(playlist.id, selectedTrack!!.id)
+                    showPlaylistDialog = false
+                },
+                onCreateNew = {
+                    showPlaylistDialog = false
+                    showCreatePlaylistDialog = true
+                }
+            )
+        }
+
+        if (showCreatePlaylistDialog && selectedTrack != null) {
+            CreatePlaylistDialog(
+                playlistName = newPlaylistName,
+                onNameChange = { newPlaylistName = it },
+                onDismiss = {
+                    showCreatePlaylistDialog = false
+                    newPlaylistName = ""
+                },
+                onConfirm = {
+                    viewModel.createPlaylistAndAddTrack(newPlaylistName, selectedTrack!!.id)
+                    showCreatePlaylistDialog = false
+                    newPlaylistName = ""
+                    selectedTrack = null
+                }
+            )
+        }
+
+        val successMessage by viewModel.successMessage.collectAsState()
+        successMessage?.let { message ->
+            Snackbar(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(16.dp)
+            ) {
+                Text(message)
             }
         }
     }
@@ -222,48 +244,6 @@ fun LibraryScreen(
         if (isSearchActive) {
             delay(100)
             focusRequester.requestFocus()
-        }
-    }
-
-    if (showPlaylistDialog && selectedTrack != null) {
-        AddToPlaylistDialog(
-            track = selectedTrack!!,
-            playlists = playlists,
-            onDismiss = { showPlaylistDialog = false },
-            onPlaylistSelected = { playlist ->
-                viewModel.addTrackToPlaylist(playlist.id, selectedTrack!!.id)
-                showPlaylistDialog = false
-            },
-            onCreateNew = {
-                showPlaylistDialog = false
-                showCreatePlaylistDialog = true
-            }
-        )
-    }
-
-    if (showCreatePlaylistDialog && selectedTrack != null) {
-        CreatePlaylistDialog(
-            playlistName = newPlaylistName,
-            onNameChange = { newPlaylistName = it },
-            onDismiss = {
-                showCreatePlaylistDialog = false
-                newPlaylistName = ""
-            },
-            onConfirm = {
-                viewModel.createPlaylistAndAddTrack(newPlaylistName, selectedTrack!!.id)
-                showCreatePlaylistDialog = false
-                newPlaylistName = ""
-                selectedTrack = null
-            }
-        )
-    }
-
-    val successMessage by viewModel.successMessage.collectAsState()
-    successMessage?.let { message ->
-        Snackbar(
-            modifier = Modifier.padding(16.dp)
-        ) {
-            Text(message)
         }
     }
 }
@@ -277,8 +257,20 @@ fun SearchBar(
     focusRequester: FocusRequester,
     modifier: Modifier = Modifier
 ) {
-    TopAppBar(
-        title = {
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 3.dp
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = onClose) {
+                Icon(Icons.Default.ArrowBack, contentDescription = "Close search")
+            }
             TextField(
                 value = query,
                 onValueChange = onQueryChange,
@@ -291,16 +283,11 @@ fun SearchBar(
                     unfocusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent
                 ),
                 modifier = Modifier
-                    .fillMaxWidth()
+                    .weight(1f)
                     .focusRequester(focusRequester)
             )
-        },
-        navigationIcon = {
-            IconButton(onClick = onClose) {
-                Icon(Icons.Default.ArrowBack, contentDescription = "Close search")
-            }
         }
-    )
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -357,7 +344,6 @@ fun TrackItem(
                 )
             }
 
-            // Bouton More
             IconButton(onClick = onMoreClick) {
                 Icon(Icons.Default.MoreVert, contentDescription = "More options")
             }

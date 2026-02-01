@@ -21,12 +21,10 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
-import com.example.sonicflow.presentation.screen.favorites.FavoritesScreen
-import com.example.sonicflow.presentation.screen.library.LibraryScreen
+import com.example.sonicflow.presentation.screen.home.HomeScreen
 import com.example.sonicflow.presentation.screen.library.LibraryViewModel
 import com.example.sonicflow.presentation.screen.player.PlayerScreen
 import com.example.sonicflow.presentation.screen.playlist.PlaylistDetailScreen
-import com.example.sonicflow.presentation.screen.playlist.PlaylistScreen
 import com.example.sonicflow.presentation.theme.SonicFlowTheme
 import dagger.hilt.android.AndroidEntryPoint
 
@@ -105,43 +103,23 @@ fun AppNavigation() {
 
     NavHost(
         navController = navController,
-        startDestination = Screen.Library.route
+        startDestination = Screen.Home.route
     ) {
-        composable(Screen.Library.route) {
-            val viewModel: LibraryViewModel = hiltViewModel()
-            LibraryScreen(
-                viewModel = viewModel,
+        // Écran principal avec tabs (Morceaux, Playlists, Favoris)
+        composable(Screen.Home.route) {
+            val libraryViewModel: LibraryViewModel = hiltViewModel()
+            HomeScreen(
                 onTrackClick = { track ->
-                    viewModel.playTrackFromList(track)
+                    libraryViewModel.playTrackFromList(track)
                     navController.navigate("${Screen.Player.route}/${track.id}")
                 },
-                onPlaylistClick = {
-                    navController.navigate(Screen.Playlists.route)
-                },
-                onFavoritesClick = {
-                    navController.navigate(Screen.Favorites.route)
-                }
-            )
-        }
-
-        composable(Screen.Favorites.route) {
-            FavoritesScreen(
-                onBackClick = { navController.navigateUp() },
-                onTrackClick = { track ->
-                    navController.navigate("${Screen.Player.route}/${track.id}")
-                }
-            )
-        }
-
-        composable(Screen.Playlists.route) {
-            PlaylistScreen(
-                onBackClick = { navController.navigateUp() },
-                onPlaylistClick = { playlistId ->
+                onPlaylistDetailClick = { playlistId ->
                     navController.navigate("${Screen.PlaylistDetail.route}/$playlistId")
                 }
             )
         }
 
+        // Détail d'une playlist
         composable(
             route = "${Screen.PlaylistDetail.route}/{playlistId}",
             arguments = listOf(
@@ -158,6 +136,7 @@ fun AppNavigation() {
             )
         }
 
+        // Player
         composable("${Screen.Player.route}/{trackId}") { backStackEntry ->
             val trackId = backStackEntry.arguments?.getString("trackId")?.toLongOrNull()
             PlayerScreen(
@@ -169,9 +148,7 @@ fun AppNavigation() {
 }
 
 sealed class Screen(val route: String) {
-    object Library : Screen("library")
-    object Favorites : Screen("favorites")
-    object Playlists : Screen("playlists")
+    object Home : Screen("home")
     object PlaylistDetail : Screen("playlist_detail")
     object Player : Screen("player")
 }

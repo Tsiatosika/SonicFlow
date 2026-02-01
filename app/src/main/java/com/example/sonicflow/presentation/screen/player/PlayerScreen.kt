@@ -152,7 +152,6 @@ fun PlayerScreen(
                             viewModel.seekTo(position)
                         },
                         waveformColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f),
-                        progressColor = MaterialTheme.colorScheme.primary,
                         backgroundColor = MaterialTheme.colorScheme.surfaceVariant
                     )
                 }
