@@ -1,28 +1,21 @@
 package com.example.sonicflow.data.local.database.converters
 
 import androidx.room.TypeConverter
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
 
 class Converters {
 
-    // Convertisseur pour List<Float> (pour les waveforms)
+    private val gson = Gson()
+
     @TypeConverter
-    fun fromFloatList(value: List<Float>?): String? {
-        return value?.joinToString(separator = ",") { it.toString() }
+    fun fromFloatList(value: List<Float>): String {
+        return gson.toJson(value)
     }
 
     @TypeConverter
-    fun toFloatList(value: String?): List<Float>? {
-        return value?.split(",")?.mapNotNull { it.toFloatOrNull() }
-    }
-
-    // Convertisseur pour List<String> (si nécessaire)
-    @TypeConverter
-    fun fromStringList(value: List<String>?): String? {
-        return value?.joinToString(separator = "|")
-    }
-
-    @TypeConverter
-    fun toStringList(value: String?): List<String>? {
-        return value?.split("|")?.filter { it.isNotEmpty() }
+    fun toFloatList(value: String): List<Float> {
+        val listType = object : TypeToken<List<Float>>() {}.type
+        return gson.fromJson(value, listType)
     }
 }

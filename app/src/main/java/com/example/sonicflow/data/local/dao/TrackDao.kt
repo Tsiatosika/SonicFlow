@@ -22,6 +22,10 @@ interface TrackDao {
     @Query("SELECT * FROM tracks WHERE id = :trackId")
     fun getTrackById(trackId: Long): Flow<TrackEntity?>
 
+    // Méthode synchrone pour le WaveformRepository
+    @Query("SELECT * FROM tracks WHERE id = :trackId")
+    suspend fun getTrackByIdSync(trackId: Long): TrackEntity?
+
     @Query("SELECT * FROM tracks WHERE title LIKE '%' || :searchQuery || '%' OR artist LIKE '%' || :searchQuery || '%'")
     fun searchTracks(searchQuery: String): Flow<List<TrackEntity>>
 
