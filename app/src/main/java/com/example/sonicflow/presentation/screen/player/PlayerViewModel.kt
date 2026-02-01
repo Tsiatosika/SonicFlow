@@ -6,6 +6,7 @@ import androidx.media3.common.Player
 import com.example.sonicflow.domain.model.PlaybackState
 import com.example.sonicflow.domain.model.Track
 import com.example.sonicflow.domain.repository.AudioPlayerRepository
+import com.example.sonicflow.domain.repository.FavoriteRepository
 import com.example.sonicflow.domain.repository.TrackRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -17,7 +18,8 @@ import javax.inject.Inject
 @HiltViewModel
 class PlayerViewModel @Inject constructor(
     private val audioPlayerRepository: AudioPlayerRepository,
-    private val trackRepository: TrackRepository
+    private val trackRepository: TrackRepository,
+    private val favoriteRepository: FavoriteRepository
 ) : ViewModel() {
 
     private val _currentTrack = MutableStateFlow<Track?>(null)
@@ -32,9 +34,15 @@ class PlayerViewModel @Inject constructor(
     private val _repeatMode = MutableStateFlow(Player.REPEAT_MODE_OFF)
     val repeatMode: StateFlow<Int> = _repeatMode.asStateFlow()
 
+    private val _isFavorite = MutableStateFlow(false)
+    val isFavorite: StateFlow<Boolean> = _isFavorite.asStateFlow()
+
+    private val _favoriteTracks = MutableStateFlow<Set<Long>>(emptySet())
+
     init {
         observePlaybackState()
         observeCurrentTrack()
+        observeFavorites()
     }
 
     private fun observePlaybackState() {
@@ -51,10 +59,30 @@ class PlayerViewModel @Inject constructor(
             audioPlayerRepository.getCurrentPlayingTrack().collect { track ->
                 if (track != null) {
                     _currentTrack.value = track
+                    updateFavoriteStatus(track.id)
                     android.util.Log.d("PlayerViewModel", "Current track: ${track.title}")
                 }
             }
         }
+    }
+
+    private fun observeFavorites() {
+        viewModelScope.launch {
+            favoriteRepository.getFavoriteTracks().collect { favoriteTracks ->
+                _favoriteTracks.value = favoriteTracks.map { it.id }.toSet()
+                android.util.Log.d("PlayerViewModel", "Favorites updated: ${favoriteTracks.size}")
+
+                // Mettre à jour le statut favori du morceau actuel
+                _currentTrack.value?.let { track ->
+                    updateFavoriteStatus(track.id)
+                }
+            }
+        }
+    }
+
+    private fun updateFavoriteStatus(trackId: Long) {
+        _isFavorite.value = _favoriteTracks.value.contains(trackId)
+        android.util.Log.d("PlayerViewModel", "Track $trackId is favorite: ${_isFavorite.value}")
     }
 
     fun loadAndPlayTrack(trackId: Long) {
@@ -64,6 +92,7 @@ class PlayerViewModel @Inject constructor(
                 track?.let {
                     android.util.Log.d("PlayerViewModel", "Track found: ${it.title}, URI: ${it.uri}")
                     _currentTrack.value = it
+                    updateFavoriteStatus(it.id)
                 }
             }
         }
@@ -123,6 +152,24 @@ class PlayerViewModel @Inject constructor(
             }
             _repeatMode.value = newRepeatMode
             audioPlayerRepository.setRepeatMode(newRepeatMode)
+        }
+    }
+
+    fun toggleFavorite(trackId: Long) {
+        viewModelScope.launch {
+            try {
+                val isFavorite = _favoriteTracks.value.contains(trackId)
+
+                if (isFavorite) {
+                    android.util.Log.d("PlayerViewModel", "Removing track $trackId from favorites")
+                    favoriteRepository.removeFromFavorites(trackId)
+                } else {
+                    android.util.Log.d("PlayerViewModel", "Adding track $trackId to favorites")
+                    favoriteRepository.addToFavorites(trackId)
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("PlayerViewModel", "Error toggling favorite", e)
+            }
         }
     }
 

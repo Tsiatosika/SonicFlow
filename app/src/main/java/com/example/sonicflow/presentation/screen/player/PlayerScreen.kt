@@ -7,6 +7,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -24,6 +25,7 @@ fun PlayerScreen(
     val playbackState by viewModel.playbackState.collectAsState()
     val isShuffleEnabled by viewModel.isShuffleEnabled.collectAsState()
     val repeatMode by viewModel.repeatMode.collectAsState()
+    val isFavorite by viewModel.isFavorite.collectAsState()
 
     // Charger et lancer la lecture automatiquement
     LaunchedEffect(trackId) {
@@ -42,6 +44,22 @@ fun PlayerScreen(
                         Icon(
                             Icons.Default.ArrowBack,
                             contentDescription = "Back"
+                        )
+                    }
+                },
+                actions = {
+                    // Bouton Favoris
+                    IconButton(
+                        onClick = {
+                            currentTrack?.let { track ->
+                                viewModel.toggleFavorite(track.id)
+                            }
+                        }
+                    ) {
+                        Icon(
+                            if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                            contentDescription = if (isFavorite) "Remove from favorites" else "Add to favorites",
+                            tint = if (isFavorite) Color.Red else MaterialTheme.colorScheme.onSurface
                         )
                     }
                 }

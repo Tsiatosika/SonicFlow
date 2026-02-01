@@ -16,7 +16,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.sonicflow.domain.model.Playlist
@@ -28,7 +27,8 @@ import kotlinx.coroutines.delay
 fun LibraryScreen(
     viewModel: LibraryViewModel,
     onTrackClick: (Track) -> Unit,
-    onPlaylistClick: () -> Unit
+    onPlaylistClick: () -> Unit,
+    onFavoritesClick: () -> Unit  // Nouveau callback pour ouvrir les favoris
 ) {
     val tracks by viewModel.tracks.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
@@ -44,12 +44,10 @@ fun LibraryScreen(
     var showCreatePlaylistDialog by remember { mutableStateOf(false) }
     var newPlaylistName by remember { mutableStateOf("") }
 
-    // Charger les playlists au démarrage
     LaunchedEffect(Unit) {
         viewModel.loadPlaylists()
     }
 
-    // Lancer la recherche quand la query change
     LaunchedEffect(searchQuery) {
         delay(300)
         if (searchQuery.isNotEmpty()) {
@@ -71,6 +69,9 @@ fun LibraryScreen(
                     actions = {
                         IconButton(onClick = { isSearchActive = true }) {
                             Icon(Icons.Default.Search, contentDescription = "Search")
+                        }
+                        IconButton(onClick = onFavoritesClick) {
+                            Icon(Icons.Default.Favorite, contentDescription = "Favorites")
                         }
                         IconButton(onClick = onPlaylistClick) {
                             Icon(Icons.Default.PlaylistPlay, contentDescription = "Playlists")
@@ -224,7 +225,6 @@ fun LibraryScreen(
         }
     }
 
-    // Dialog pour choisir une playlist
     if (showPlaylistDialog && selectedTrack != null) {
         AddToPlaylistDialog(
             track = selectedTrack!!,
@@ -241,7 +241,6 @@ fun LibraryScreen(
         )
     }
 
-    // Dialog pour créer une nouvelle playlist
     if (showCreatePlaylistDialog && selectedTrack != null) {
         CreatePlaylistDialog(
             playlistName = newPlaylistName,
@@ -254,8 +253,18 @@ fun LibraryScreen(
                 viewModel.createPlaylistAndAddTrack(newPlaylistName, selectedTrack!!.id)
                 showCreatePlaylistDialog = false
                 newPlaylistName = ""
+                selectedTrack = null
             }
         )
+    }
+
+    val successMessage by viewModel.successMessage.collectAsState()
+    successMessage?.let { message ->
+        Snackbar(
+            modifier = Modifier.padding(16.dp)
+        ) {
+            Text(message)
+        }
     }
 }
 
@@ -265,31 +274,25 @@ fun SearchBar(
     query: String,
     onQueryChange: (String) -> Unit,
     onClose: () -> Unit,
-    focusRequester: FocusRequester
+    focusRequester: FocusRequester,
+    modifier: Modifier = Modifier
 ) {
     TopAppBar(
         title = {
             TextField(
                 value = query,
                 onValueChange = onQueryChange,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .focusRequester(focusRequester),
-                placeholder = { Text("Rechercher un morceau, artiste...") },
+                placeholder = { Text("Rechercher...") },
+                singleLine = true,
                 colors = TextFieldDefaults.colors(
                     focusedContainerColor = MaterialTheme.colorScheme.surface,
                     unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-                    focusedIndicatorColor = Color.Transparent,
-                    unfocusedIndicatorColor = Color.Transparent
+                    focusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
+                    unfocusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent
                 ),
-                singleLine = true,
-                trailingIcon = {
-                    if (query.isNotEmpty()) {
-                        IconButton(onClick = { onQueryChange("") }) {
-                            Icon(Icons.Default.Clear, contentDescription = "Clear")
-                        }
-                    }
-                }
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .focusRequester(focusRequester)
             )
         },
         navigationIcon = {
@@ -354,6 +357,7 @@ fun TrackItem(
                 )
             }
 
+            // Bouton More
             IconButton(onClick = onMoreClick) {
                 Icon(Icons.Default.MoreVert, contentDescription = "More options")
             }

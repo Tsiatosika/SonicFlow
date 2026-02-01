@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.sonicflow.domain.model.Playlist
 import com.example.sonicflow.domain.model.Track
 import com.example.sonicflow.domain.repository.AudioPlayerRepository
+import com.example.sonicflow.domain.repository.FavoriteRepository
 import com.example.sonicflow.domain.repository.PlaylistRepository
 import com.example.sonicflow.domain.repository.TrackRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -18,7 +19,8 @@ import javax.inject.Inject
 class LibraryViewModel @Inject constructor(
     private val trackRepository: TrackRepository,
     private val audioPlayerRepository: AudioPlayerRepository,
-    private val playlistRepository: PlaylistRepository
+    private val playlistRepository: PlaylistRepository,
+    private val favoriteRepository: FavoriteRepository
 ) : ViewModel() {
 
     private val _tracks = MutableStateFlow<List<Track>>(emptyList())
@@ -26,6 +28,9 @@ class LibraryViewModel @Inject constructor(
 
     private val _playlists = MutableStateFlow<List<Playlist>>(emptyList())
     val playlists: StateFlow<List<Playlist>> = _playlists.asStateFlow()
+
+    private val _favoriteTracks = MutableStateFlow<Set<Long>>(emptySet())
+    val favoriteTracks: StateFlow<Set<Long>> = _favoriteTracks.asStateFlow()
 
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
@@ -41,6 +46,7 @@ class LibraryViewModel @Inject constructor(
 
     init {
         observeTracks()
+        observeFavorites()
     }
 
     private fun observeTracks() {
@@ -58,6 +64,15 @@ class LibraryViewModel @Inject constructor(
                         isInitialized = true
                     }
                 }
+            }
+        }
+    }
+
+    private fun observeFavorites() {
+        viewModelScope.launch {
+            favoriteRepository.getFavoriteTracks().collect { favoriteTracks ->
+                _favoriteTracks.value = favoriteTracks.map { it.id }.toSet()
+                android.util.Log.d("LibraryViewModel", "Favorites updated: ${favoriteTracks.size}")
             }
         }
     }
@@ -128,19 +143,46 @@ class LibraryViewModel @Inject constructor(
         }
     }
 
+    fun toggleFavorite(trackId: Long) {
+        viewModelScope.launch {
+            try {
+                val isFavorite = _favoriteTracks.value.contains(trackId)
+
+                if (isFavorite) {
+                    android.util.Log.d("LibraryViewModel", "Removing track $trackId from favorites")
+                    favoriteRepository.removeFromFavorites(trackId)
+                    _successMessage.value = "Retiré des favoris"
+                } else {
+                    android.util.Log.d("LibraryViewModel", "Adding track $trackId to favorites")
+                    favoriteRepository.addToFavorites(trackId)
+                    _successMessage.value = "Ajouté aux favoris"
+                }
+
+                // Effacer le message après 2 secondes
+                kotlinx.coroutines.delay(2000)
+                _successMessage.value = null
+            } catch (e: Exception) {
+                android.util.Log.e("LibraryViewModel", "Error toggling favorite", e)
+                _error.value = "Erreur: ${e.message}"
+            }
+        }
+    }
+
+    fun isFavorite(trackId: Long): Boolean {
+        return _favoriteTracks.value.contains(trackId)
+    }
+
     fun addTrackToPlaylist(playlistId: Long, trackId: Long) {
         viewModelScope.launch {
             try {
                 android.util.Log.d("LibraryViewModel", "Adding track $trackId to playlist $playlistId")
                 playlistRepository.addTrackToPlaylist(playlistId, trackId)
 
-                // Recharger les playlists pour mettre à jour le compteur
                 loadPlaylists()
 
                 _successMessage.value = "Morceau ajouté à la playlist"
                 android.util.Log.d("LibraryViewModel", "Track added successfully")
 
-                // Effacer le message après 3 secondes
                 kotlinx.coroutines.delay(3000)
                 _successMessage.value = null
             } catch (e: Exception) {
@@ -155,20 +197,16 @@ class LibraryViewModel @Inject constructor(
             try {
                 android.util.Log.d("LibraryViewModel", "Creating playlist '$playlistName' and adding track $trackId")
 
-                // Créer la playlist
                 val playlistId = playlistRepository.createPlaylist(playlistName)
                 android.util.Log.d("LibraryViewModel", "Playlist created with ID: $playlistId")
 
-                // Ajouter le morceau
                 playlistRepository.addTrackToPlaylist(playlistId, trackId)
                 android.util.Log.d("LibraryViewModel", "Track added to new playlist")
 
-                // Recharger les playlists
                 loadPlaylists()
 
                 _successMessage.value = "Playlist '$playlistName' créée et morceau ajouté"
 
-                // Effacer le message après 3 secondes
                 kotlinx.coroutines.delay(3000)
                 _successMessage.value = null
             } catch (e: Exception) {

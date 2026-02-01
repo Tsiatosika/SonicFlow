@@ -4,6 +4,7 @@ import android.content.ContentResolver
 import android.content.Context
 import androidx.room.Room
 import com.example.sonicflow.data.local.database.AppDatabase
+import com.example.sonicflow.data.local.dao.FavoriteDao
 import com.example.sonicflow.data.local.dao.PlaylistDao
 import com.example.sonicflow.data.local.dao.PlaylistTrackCrossRefDao
 import com.example.sonicflow.data.local.dao.TrackDao
@@ -54,6 +55,12 @@ object DataModule {
     @Singleton
     fun provideWaveformDataDao(database: AppDatabase): WaveformDataDao {
         return database.waveformDataDao()
+    }
+
+    @Provides
+    @Singleton
+    fun provideFavoriteDao(database: AppDatabase): FavoriteDao {
+        return database.favoriteDao()
     }
 
     @Provides

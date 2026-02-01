@@ -21,6 +21,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.example.sonicflow.presentation.screen.favorites.FavoritesScreen
 import com.example.sonicflow.presentation.screen.library.LibraryScreen
 import com.example.sonicflow.presentation.screen.library.LibraryViewModel
 import com.example.sonicflow.presentation.screen.player.PlayerScreen
@@ -116,6 +117,18 @@ fun AppNavigation() {
                 },
                 onPlaylistClick = {
                     navController.navigate(Screen.Playlists.route)
+                },
+                onFavoritesClick = {
+                    navController.navigate(Screen.Favorites.route)
+                }
+            )
+        }
+
+        composable(Screen.Favorites.route) {
+            FavoritesScreen(
+                onBackClick = { navController.navigateUp() },
+                onTrackClick = { track ->
+                    navController.navigate("${Screen.Player.route}/${track.id}")
                 }
             )
         }
@@ -157,6 +170,7 @@ fun AppNavigation() {
 
 sealed class Screen(val route: String) {
     object Library : Screen("library")
+    object Favorites : Screen("favorites")
     object Playlists : Screen("playlists")
     object PlaylistDetail : Screen("playlist_detail")
     object Player : Screen("player")

@@ -2,14 +2,17 @@ package com.example.sonicflow.di
 
 import android.content.Context
 import androidx.media3.common.util.UnstableApi
+import com.example.sonicflow.data.local.dao.FavoriteDao
 import com.example.sonicflow.data.local.dao.PlaylistDao
 import com.example.sonicflow.data.local.dao.PlaylistTrackCrossRefDao
 import com.example.sonicflow.data.local.dao.TrackDao
 import com.example.sonicflow.data.remote.mediastore.MediaStoreDataSource
 import com.example.sonicflow.data.repository.AudioPlayerRepositoryImpl
+import com.example.sonicflow.data.repository.FavoriteRepositoryImpl
 import com.example.sonicflow.data.repository.PlaylistRepositoryImpl
 import com.example.sonicflow.data.repository.TrackRepositoryImpl
 import com.example.sonicflow.domain.repository.AudioPlayerRepository
+import com.example.sonicflow.domain.repository.FavoriteRepository
 import com.example.sonicflow.domain.repository.PlaylistRepository
 import com.example.sonicflow.domain.repository.TrackRepository
 import com.example.sonicflow.service.AudioPlayerServiceConnection
@@ -41,6 +44,14 @@ object RepositoryModule {
         trackDao: TrackDao
     ): PlaylistRepository {
         return PlaylistRepositoryImpl(playlistDao, playlistTrackCrossRefDao, trackDao)
+    }
+
+    @Provides
+    @Singleton
+    fun provideFavoriteRepository(
+        favoriteDao: FavoriteDao
+    ): FavoriteRepository {
+        return FavoriteRepositoryImpl(favoriteDao)
     }
 
     @UnstableApi

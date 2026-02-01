@@ -14,7 +14,8 @@ import com.example.sonicflow.data.local.database.entities.*
         PlaylistEntity::class,
         TrackEntity::class,
         PlaylistTrackCrossRefEntity::class,
-        WaveformDataEntity::class
+        WaveformDataEntity::class,
+        FavoriteEntity::class
     ],
     version = 1,
     exportSchema = false  // Pour éviter l'avertissement de schema
@@ -26,6 +27,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun playlistDao(): PlaylistDao
     abstract fun playlistTrackCrossRefDao(): PlaylistTrackCrossRefDao
     abstract fun waveformDataDao(): WaveformDataDao
+    abstract fun favoriteDao() : FavoriteDao
 
     companion object {
         @Volatile
@@ -38,7 +40,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "sonicflow_database"
                 )
-                    .fallbackToDestructiveMigration() // Supprime et recrée en cas de migration
+                    .fallbackToDestructiveMigration()
                     .build()
                 INSTANCE = instance
                 instance
