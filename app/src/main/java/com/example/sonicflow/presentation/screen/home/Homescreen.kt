@@ -6,9 +6,11 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.sonicflow.domain.model.Artist
 import com.example.sonicflow.domain.model.Track
+import com.example.sonicflow.presentation.screen.artist.ArtistContent
+import com.example.sonicflow.presentation.screen.artist.ArtistViewModel
 import com.example.sonicflow.presentation.screen.favorites.FavoritesContent
 import com.example.sonicflow.presentation.screen.favorites.FavoritesViewModel
 import com.example.sonicflow.presentation.screen.library.LibraryContent
@@ -21,9 +23,11 @@ import com.example.sonicflow.presentation.screen.playlist.PlaylistViewModel
 fun HomeScreen(
     onTrackClick: (Track) -> Unit,
     onPlaylistDetailClick: (Long) -> Unit,
+    onArtistDetailClick: (Artist) -> Unit,
     libraryViewModel: LibraryViewModel = hiltViewModel(),
     playlistViewModel: PlaylistViewModel = hiltViewModel(),
-    favoritesViewModel: FavoritesViewModel = hiltViewModel()
+    favoritesViewModel: FavoritesViewModel = hiltViewModel(),
+    artistViewModel: ArtistViewModel = hiltViewModel()
 ) {
     var selectedTabIndex by remember { mutableStateOf(0) }
     var isSearchActive by remember { mutableStateOf(false) }
@@ -33,6 +37,11 @@ fun HomeScreen(
             title = "Morceaux",
             icon = Icons.Default.MusicNote,
             selectedIcon = Icons.Default.MusicNote
+        ),
+        TabItem(
+            title = "Artistes",
+            icon = Icons.Default.Person,
+            selectedIcon = Icons.Default.Person
         ),
         TabItem(
             title = "Playlists",
@@ -110,6 +119,15 @@ fun HomeScreen(
                     )
                 }
                 1 -> {
+                    // Onglet Artistes
+                    ArtistContent(
+                        viewModel = artistViewModel,
+                        onArtistClick = onArtistDetailClick,
+                        isSearchActive = isSearchActive,
+                        onSearchActiveChange = { isSearchActive = it }
+                    )
+                }
+                2 -> {
                     // Onglet Playlists
                     PlaylistContent(
                         viewModel = playlistViewModel,
@@ -118,7 +136,7 @@ fun HomeScreen(
                         onSearchActiveChange = { isSearchActive = it }
                     )
                 }
-                2 -> {
+                3 -> {
                     // Onglet Favoris
                     FavoritesContent(
                         viewModel = favoritesViewModel,

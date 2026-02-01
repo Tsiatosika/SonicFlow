@@ -21,6 +21,9 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.example.sonicflow.domain.model.Artist
+import com.example.sonicflow.presentation.screen.artist.ArtistDetailScreen
+import com.example.sonicflow.presentation.screen.artist.ArtistViewModel
 import com.example.sonicflow.presentation.screen.home.HomeScreen
 import com.example.sonicflow.presentation.screen.library.LibraryViewModel
 import com.example.sonicflow.presentation.screen.player.PlayerScreen
@@ -101,11 +104,14 @@ fun SonicFlowApp() {
 fun AppNavigation() {
     val navController = rememberNavController()
 
+    // Shared ViewModel pour conserver les données des artistes
+    var selectedArtist: Artist? = null
+
     NavHost(
         navController = navController,
         startDestination = Screen.Home.route
     ) {
-        // Écran principal avec tabs (Morceaux, Playlists, Favoris)
+        // Écran principal avec tabs (Morceaux, Artistes, Playlists, Favoris)
         composable(Screen.Home.route) {
             val libraryViewModel: LibraryViewModel = hiltViewModel()
             HomeScreen(
@@ -115,8 +121,29 @@ fun AppNavigation() {
                 },
                 onPlaylistDetailClick = { playlistId ->
                     navController.navigate("${Screen.PlaylistDetail.route}/$playlistId")
+                },
+                onArtistDetailClick = { artist ->
+                    selectedArtist = artist
+                    navController.navigate(Screen.ArtistDetail.route)
                 }
             )
+        }
+
+        // Détail d'un artiste
+        composable(Screen.ArtistDetail.route) {
+            val artist = selectedArtist
+            val artistViewModel: ArtistViewModel = hiltViewModel()
+
+            if (artist != null) {
+                ArtistDetailScreen(
+                    artist = artist,
+                    onBackClick = { navController.navigateUp() },
+                    onTrackClick = { track ->
+                        navController.navigate("${Screen.Player.route}/${track.id}")
+                    },
+                    viewModel = artistViewModel
+                )
+            }
         }
 
         // Détail d'une playlist
@@ -149,6 +176,7 @@ fun AppNavigation() {
 
 sealed class Screen(val route: String) {
     object Home : Screen("home")
+    object ArtistDetail : Screen("artist_detail")
     object PlaylistDetail : Screen("playlist_detail")
     object Player : Screen("player")
 }
