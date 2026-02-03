@@ -12,5 +12,8 @@ data class Track(
     val size: Long,
     val dateAdded: Long,
     val displayName: String,
-    val mimeType: String
+    val mimeType: String,
+    val trackNumber: Int = 0,
+    val year: Int = 0
+
 )
