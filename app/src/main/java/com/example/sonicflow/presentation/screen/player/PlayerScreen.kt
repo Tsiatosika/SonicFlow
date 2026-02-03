@@ -16,7 +16,8 @@ import androidx.media3.common.util.UnstableApi
 import com.example.sonicflow.presentation.screen.waveform.WaveformViewModel
 import com.example.sonicflow.presentation.screen.waveform.WaveformVisualizer
 
-@androidx.annotation.OptIn(UnstableApi::class) @OptIn(ExperimentalMaterial3Api::class)
+@androidx.annotation.OptIn(UnstableApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PlayerScreen(
     trackId: Long?,
@@ -33,12 +34,24 @@ fun PlayerScreen(
     val waveformData by waveformViewModel.waveformData.collectAsState()
     val isWaveformLoading by waveformViewModel.isLoading.collectAsState()
 
-    // Charger et lancer la lecture automatiquement
+    // Si trackId est un ID réel (depuis une liste), on charge ce morceau.
+    // Si trackId == 0 (depuis le MiniPlayer), on ne recharge rien —
+    // le PlayerViewModel a déjà le bon état depuis AudioPlayerRepository.
     LaunchedEffect(trackId) {
-        trackId?.let {
-            android.util.Log.d("PlayerScreen", "Loading track with ID: $it")
-            viewModel.loadAndPlayTrack(it)
-            waveformViewModel.loadWaveform(it)
+        if (trackId != null && trackId != 0L) {
+            android.util.Log.d("PlayerScreen", "Loading track with ID: $trackId")
+            viewModel.loadAndPlayTrack(trackId)
+            waveformViewModel.loadWaveform(trackId)
+        }
+    }
+
+    // Chaque fois que currentTrack change (ex: depuis MiniPlayer où trackId == 0,
+    // ou après un skipToNext), on recharge le waveform avec l'ID du morceau actuel.
+    LaunchedEffect(currentTrack?.id) {
+        val id = currentTrack?.id
+        if (id != null && id != 0L) {
+            android.util.Log.d("PlayerScreen", "currentTrack changed, loading waveform for $id")
+            waveformViewModel.loadWaveform(id)
         }
     }
 
@@ -48,14 +61,10 @@ fun PlayerScreen(
                 title = { Text("Now Playing") },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
-                        Icon(
-                            Icons.Default.ArrowBack,
-                            contentDescription = "Back"
-                        )
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
                     }
                 },
                 actions = {
-                    // Bouton Favoris
                     IconButton(
                         onClick = {
                             currentTrack?.let { track ->
@@ -84,8 +93,7 @@ fun PlayerScreen(
 
             // Album Art Placeholder
             Card(
-                modifier = Modifier
-                    .size(320.dp),
+                modifier = Modifier.size(320.dp),
                 colors = CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.surfaceVariant
                 )
@@ -129,7 +137,7 @@ fun PlayerScreen(
 
             Spacer(modifier = Modifier.weight(1f))
 
-            // Waveform Visualizer Section
+            // Waveform Visualizer
             Column(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally
@@ -215,12 +223,9 @@ fun PlayerScreen(
                     )
                 }
 
-                // Play/Pause (Large button)
+                // Play/Pause
                 FilledTonalButton(
-                    onClick = {
-                        android.util.Log.d("PlayerScreen", "Play/Pause clicked, isPlaying: ${playbackState.isPlaying}")
-                        viewModel.togglePlayPause()
-                    },
+                    onClick = { viewModel.togglePlayPause() },
                     modifier = Modifier.size(80.dp),
                     contentPadding = PaddingValues(0.dp),
                     colors = ButtonDefaults.filledTonalButtonColors(

@@ -9,16 +9,18 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.*
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.example.sonicflow.domain.model.Album
@@ -29,6 +31,7 @@ import com.example.sonicflow.presentation.screen.artist.ArtistDetailScreen
 import com.example.sonicflow.presentation.screen.artist.ArtistViewModel
 import com.example.sonicflow.presentation.screen.home.HomeScreen
 import com.example.sonicflow.presentation.screen.library.LibraryViewModel
+import com.example.sonicflow.presentation.screen.player.MiniPlayer
 import com.example.sonicflow.presentation.screen.player.PlayerScreen
 import com.example.sonicflow.presentation.screen.playlist.PlaylistDetailScreen
 import com.example.sonicflow.presentation.theme.SonicFlowTheme
@@ -54,9 +57,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-
         checkAndRequestPermissions()
-
         setContent {
             SonicFlowApp()
         }
@@ -70,10 +71,7 @@ class MainActivity : ComponentActivity() {
         }
 
         when {
-            ContextCompat.checkSelfPermission(
-                this,
-                permission
-            ) == PackageManager.PERMISSION_GRANTED -> {
+            ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED -> {
                 android.util.Log.d("MainActivity", "Permission already granted")
             }
             shouldShowRequestPermissionRationale(permission) -> {
@@ -106,96 +104,110 @@ fun SonicFlowApp() {
 @Composable
 fun AppNavigation() {
     val navController = rememberNavController()
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = navBackStackEntry?.destination?.route ?: ""
 
-    // Shared state pour conserver les données
+    // Shared state pour les données complexes (Artist, Album)
     var selectedArtist: Artist? = null
     var selectedAlbum: Album? = null
 
-    NavHost(
-        navController = navController,
-        startDestination = Screen.Home.route
-    ) {
-        // Écran principal avec tabs (Morceaux, Albums, Artistes, Playlists, Favoris)
-        composable(Screen.Home.route) {
-            val libraryViewModel: LibraryViewModel = hiltViewModel()
-            HomeScreen(
-                onTrackClick = { track ->
-                    libraryViewModel.playTrackFromList(track)
-                    navController.navigate("${Screen.Player.route}/${track.id}")
-                },
-                onPlaylistDetailClick = { playlistId ->
-                    navController.navigate("${Screen.PlaylistDetail.route}/$playlistId")
-                },
-                onArtistDetailClick = { artist ->
-                    selectedArtist = artist
-                    navController.navigate(Screen.ArtistDetail.route)
-                },
-                onAlbumDetailClick = { album ->
-                    selectedAlbum = album
-                    navController.navigate(Screen.AlbumDetail.route)
+    Column(modifier = Modifier.fillMaxSize()) {
+        // NavHost — occupe tout l'espace restant
+        NavHost(
+            navController = navController,
+            startDestination = Screen.Home.route,
+            modifier = Modifier.weight(1f)
+        ) {
+            // Home avec 5 onglets
+            composable(Screen.Home.route) {
+                val libraryViewModel: LibraryViewModel = hiltViewModel()
+                HomeScreen(
+                    onTrackClick = { track ->
+                        libraryViewModel.playTrackFromList(track)
+                        navController.navigate("${Screen.Player.route}/${track.id}")
+                    },
+                    onPlaylistDetailClick = { playlistId ->
+                        navController.navigate("${Screen.PlaylistDetail.route}/$playlistId")
+                    },
+                    onArtistDetailClick = { artist ->
+                        selectedArtist = artist
+                        navController.navigate(Screen.ArtistDetail.route)
+                    },
+                    onAlbumDetailClick = { album ->
+                        selectedAlbum = album
+                        navController.navigate(Screen.AlbumDetail.route)
+                    }
+                )
+            }
+
+            // Détail Album
+            composable(Screen.AlbumDetail.route) {
+                val album = selectedAlbum
+                val albumViewModel: AlbumViewModel = hiltViewModel()
+                if (album != null) {
+                    AlbumDetailScreen(
+                        album = album,
+                        onBackClick = { navController.navigateUp() },
+                        onTrackClick = { track ->
+                            albumViewModel.playAlbumTracks(album, album.tracks.indexOf(track))
+                            navController.navigate("${Screen.Player.route}/${track.id}")
+                        },
+                        viewModel = albumViewModel
+                    )
                 }
-            )
-        }
+            }
 
-        // Détail d'un album
-        composable(Screen.AlbumDetail.route) {
-            val album = selectedAlbum
-            val albumViewModel: AlbumViewModel = hiltViewModel()
+            // Détail Artiste
+            composable(Screen.ArtistDetail.route) {
+                val artist = selectedArtist
+                val artistViewModel: ArtistViewModel = hiltViewModel()
+                if (artist != null) {
+                    ArtistDetailScreen(
+                        artist = artist,
+                        onBackClick = { navController.navigateUp() },
+                        onTrackClick = { track ->
+                            artistViewModel.playArtistTracks(artist, artist.tracks.indexOf(track))
+                            navController.navigate("${Screen.Player.route}/${track.id}")
+                        },
+                        viewModel = artistViewModel
+                    )
+                }
+            }
 
-            if (album != null) {
-                AlbumDetailScreen(
-                    album = album,
+            // Détail Playlist
+            composable(
+                route = "${Screen.PlaylistDetail.route}/{playlistId}",
+                arguments = listOf(
+                    navArgument("playlistId") { type = NavType.LongType }
+                )
+            ) { backStackEntry ->
+                val playlistId = backStackEntry.arguments?.getLong("playlistId") ?: 0L
+                PlaylistDetailScreen(
+                    playlistId = playlistId,
                     onBackClick = { navController.navigateUp() },
                     onTrackClick = { track ->
                         navController.navigate("${Screen.Player.route}/${track.id}")
-                    },
-                    viewModel = albumViewModel
+                    }
+                )
+            }
+
+            // Player plein écran
+            composable("${Screen.Player.route}/{trackId}") { backStackEntry ->
+                val trackId = backStackEntry.arguments?.getString("trackId")?.toLongOrNull()
+                PlayerScreen(
+                    trackId = trackId,
+                    onBackClick = { navController.navigateUp() }
                 )
             }
         }
 
-        // Détail d'un artiste
-        composable(Screen.ArtistDetail.route) {
-            val artist = selectedArtist
-            val artistViewModel: ArtistViewModel = hiltViewModel()
-
-            if (artist != null) {
-                ArtistDetailScreen(
-                    artist = artist,
-                    onBackClick = { navController.navigateUp() },
-                    onTrackClick = { track ->
-                        navController.navigate("${Screen.Player.route}/${track.id}")
-                    },
-                    viewModel = artistViewModel
-                )
-            }
-        }
-
-        // Détail d'une playlist
-        composable(
-            route = "${Screen.PlaylistDetail.route}/{playlistId}",
-            arguments = listOf(
-                navArgument("playlistId") { type = NavType.LongType }
-            )
-        ) { backStackEntry ->
-            val playlistId = backStackEntry.arguments?.getLong("playlistId") ?: 0L
-            PlaylistDetailScreen(
-                playlistId = playlistId,
-                onBackClick = { navController.navigateUp() },
-                onTrackClick = { track ->
-                    navController.navigate("${Screen.Player.route}/${track.id}")
-                }
-            )
-        }
-
-        // Player
-        composable("${Screen.Player.route}/{trackId}") { backStackEntry ->
-            val trackId = backStackEntry.arguments?.getString("trackId")?.toLongOrNull()
-            PlayerScreen(
-                trackId = trackId,
-                onBackClick = { navController.navigateUp() }
-            )
-        }
+        // MiniPlayer — toujours rendu, visibilité gérée en interne
+        MiniPlayer(
+            onPlayerClick = {
+                navController.navigate("${Screen.Player.route}/0")
+            },
+            hideOnPlayer = currentRoute.startsWith(Screen.Player.route)
+        )
     }
 }
 
