@@ -1,5 +1,11 @@
 package com.example.sonicflow.presentation.screen.library
 
+import android.content.ContentUris
+import android.content.Context
+import android.content.Intent
+import android.media.MediaScannerConnection
+import android.net.Uri
+import android.provider.MediaStore
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.sonicflow.domain.model.Playlist
@@ -9,136 +15,222 @@ import com.example.sonicflow.domain.repository.FavoriteRepository
 import com.example.sonicflow.domain.repository.PlaylistRepository
 import com.example.sonicflow.domain.repository.TrackRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import java.io.File
 import javax.inject.Inject
 
 @HiltViewModel
 class LibraryViewModel @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val trackRepository: TrackRepository,
-    private val audioPlayerRepository: AudioPlayerRepository,
     private val playlistRepository: PlaylistRepository,
-    private val favoriteRepository: FavoriteRepository
+    private val favoriteRepository: FavoriteRepository,
+    private val audioPlayerRepository: AudioPlayerRepository
 ) : ViewModel() {
 
+    // Tracks
     private val _tracks = MutableStateFlow<List<Track>>(emptyList())
     val tracks: StateFlow<List<Track>> = _tracks.asStateFlow()
 
-    private val _playlists = MutableStateFlow<List<Playlist>>(emptyList())
-    val playlists: StateFlow<List<Playlist>> = _playlists.asStateFlow()
+    private val _allTracks = MutableStateFlow<List<Track>>(emptyList())
 
-    private val _favoriteTracks = MutableStateFlow<Set<Long>>(emptySet())
-    val favoriteTracks: StateFlow<Set<Long>> = _favoriteTracks.asStateFlow()
-
+    // Loading & Error states
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
 
+    // Playlists
+    private val _playlists = MutableStateFlow<List<Playlist>>(emptyList())
+    val playlists: StateFlow<List<Playlist>> = _playlists.asStateFlow()
+
+    // Favorites
+    private val _favoriteTracks = MutableStateFlow<Set<Long>>(emptySet())
+    val favoriteTracks: StateFlow<Set<Long>> = _favoriteTracks.asStateFlow()
+
+    // Current playing track
+    private val _currentPlayingTrack = MutableStateFlow<Track?>(null)
+    val currentPlayingTrack: StateFlow<Track?> = _currentPlayingTrack.asStateFlow()
+
+    // Success messages
     private val _successMessage = MutableStateFlow<String?>(null)
     val successMessage: StateFlow<String?> = _successMessage.asStateFlow()
 
-    private var isInitialized = false
-    private var isSearching = false
+    // Track details dialog
+    private val _showTrackDetailsDialog = MutableStateFlow(false)
+    val showTrackDetailsDialog: StateFlow<Boolean> = _showTrackDetailsDialog.asStateFlow()
+
+    private val _trackDetailsText = MutableStateFlow("")
+    val trackDetailsText: StateFlow<String> = _trackDetailsText.asStateFlow()
 
     init {
-        observeTracks()
+        loadTracks()
+        loadPlaylists()
         observeFavorites()
+        observeCurrentTrack()
     }
 
-    private fun observeTracks() {
-        viewModelScope.launch {
-            trackRepository.getAllTracks().collect { trackList ->
-                if (!isSearching) {
-                    android.util.Log.d("LibraryViewModel", "Tracks updated: ${trackList.size}")
-                    _tracks.value = trackList
+    // ========================================================================
+    // TRACK LOADING
+    // ========================================================================
 
-                    if (!isInitialized && trackList.isEmpty()) {
-                        isInitialized = true
-                        android.util.Log.d("LibraryViewModel", "First load - DB empty, triggering scan")
-                        refreshTracks()
-                    } else if (!isInitialized) {
-                        isInitialized = true
-                    }
+    fun loadTracks() {
+        viewModelScope.launch {
+            _isLoading.value = true
+            _error.value = null
+
+            try {
+                trackRepository.getAllTracks().collect { trackList ->
+                    _allTracks.value = trackList
+                    _tracks.value = trackList
+                    _isLoading.value = false
+                    android.util.Log.d("LibraryViewModel", "Loaded ${trackList.size} tracks")
+                }
+            } catch (e: Exception) {
+                _error.value = "Failed to load tracks: ${e.message}"
+                _isLoading.value = false
+                android.util.Log.e("LibraryViewModel", "Error loading tracks", e)
+            }
+        }
+    }
+
+    fun refreshTracks() {
+        loadTracks()
+    }
+
+    // ========================================================================
+    // SEARCH
+    // ========================================================================
+
+    fun searchTracks(query: String) {
+        viewModelScope.launch {
+            try {
+                if (query.isBlank()) {
+                    _tracks.value = _allTracks.value
+                    return@launch
+                }
+
+                val filteredTracks = _allTracks.value.filter { track ->
+                    track.title.contains(query, ignoreCase = true) ||
+                            track.artist.contains(query, ignoreCase = true) ||
+                            track.album.contains(query, ignoreCase = true)
+                }
+
+                _tracks.value = filteredTracks
+                android.util.Log.d("LibraryViewModel", "Search '$query': ${filteredTracks.size} results")
+            } catch (e: Exception) {
+                _error.value = "Search failed: ${e.message}"
+                android.util.Log.e("LibraryViewModel", "Error searching tracks", e)
+            }
+        }
+    }
+
+    fun clearSearch() {
+        _tracks.value = _allTracks.value
+    }
+
+    // ========================================================================
+    // PLAYBACK
+    // ========================================================================
+
+    fun playTrackFromList(track: Track) {
+        viewModelScope.launch {
+            try {
+                val currentTracks = _tracks.value
+                val startIndex = currentTracks.indexOf(track)
+
+                if (startIndex != -1) {
+                    audioPlayerRepository.playTrackList(currentTracks, startIndex)
+                    android.util.Log.d("LibraryViewModel", "Playing track: ${track.title}")
+                } else {
+                    audioPlayerRepository.playTrack(track)
+                }
+            } catch (e: Exception) {
+                _error.value = "Failed to play track: ${e.message}"
+                android.util.Log.e("LibraryViewModel", "Error playing track", e)
+            }
+        }
+    }
+
+    private fun observeCurrentTrack() {
+        viewModelScope.launch {
+            audioPlayerRepository.getCurrentPlayingTrack().collect { track ->
+                _currentPlayingTrack.value = track
+                if (track != null) {
+                    android.util.Log.d("LibraryViewModel", "Current track: ${track.title}")
                 }
             }
         }
     }
 
-    private fun observeFavorites() {
-        viewModelScope.launch {
-            favoriteRepository.getFavoriteTracks().collect { favoriteTracks ->
-                _favoriteTracks.value = favoriteTracks.map { it.id }.toSet()
-                android.util.Log.d("LibraryViewModel", "Favorites updated: ${favoriteTracks.size}")
-            }
-        }
-    }
+    // ========================================================================
+    // PLAYLISTS
+    // ========================================================================
 
     fun loadPlaylists() {
         viewModelScope.launch {
             try {
                 playlistRepository.getAllPlaylists().collect { playlistList ->
                     _playlists.value = playlistList
-                    android.util.Log.d("LibraryViewModel", "Playlists loaded: ${playlistList.size}")
+                    android.util.Log.d("LibraryViewModel", "Loaded ${playlistList.size} playlists")
                 }
             } catch (e: Exception) {
-                android.util.Log.e("LibraryViewModel", "Error loading playlists", e)
                 _error.value = "Failed to load playlists: ${e.message}"
+                android.util.Log.e("LibraryViewModel", "Error loading playlists", e)
             }
         }
     }
 
-    fun loadTracks() {
-        refreshTracks()
-    }
-
-    fun refreshTracks() {
+    fun createPlaylistAndAddTrack(playlistName: String, trackId: Long) {
         viewModelScope.launch {
-            _isLoading.value = true
-            _error.value = null
-            isSearching = false
-
             try {
-                android.util.Log.d("LibraryViewModel", "Starting track refresh...")
-                trackRepository.refreshTracks()
-                android.util.Log.d("LibraryViewModel", "Track refresh completed")
+                val playlistId = playlistRepository.createPlaylist(playlistName)
+                playlistRepository.addTrackToPlaylist(playlistId, trackId)
+
+                showSuccessMessage("Playlist '$playlistName' créée et morceau ajouté")
+                android.util.Log.d("LibraryViewModel", "Created playlist: $playlistName")
             } catch (e: Exception) {
-                android.util.Log.e("LibraryViewModel", "Error refreshing tracks", e)
-                _error.value = "Failed to refresh: ${e.message}"
-            } finally {
-                _isLoading.value = false
+                _error.value = "Failed to create playlist: ${e.message}"
+                android.util.Log.e("LibraryViewModel", "Error creating playlist", e)
             }
         }
     }
 
-    fun searchTracks(query: String) {
+    fun addTrackToPlaylist(playlistId: Long, trackId: Long) {
         viewModelScope.launch {
             try {
-                isSearching = true
-                android.util.Log.d("LibraryViewModel", "Searching for: $query")
+                playlistRepository.addTrackToPlaylist(playlistId, trackId)
 
-                if (query.isNotEmpty()) {
-                    trackRepository.searchTracks(query).collect { results ->
-                        _tracks.value = results
-                        android.util.Log.d("LibraryViewModel", "Search results: ${results.size}")
-                    }
+                val playlist = _playlists.value.find { it.id == playlistId }
+                val playlistName = playlist?.name ?: "playlist"
+
+                showSuccessMessage("Ajouté à '$playlistName'")
+                android.util.Log.d("LibraryViewModel", "Added track $trackId to playlist $playlistId")
+            } catch (e: Exception) {
+                _error.value = "Failed to add to playlist: ${e.message}"
+                android.util.Log.e("LibraryViewModel", "Error adding to playlist", e)
+            }
+        }
+    }
+
+    // ========================================================================
+    // FAVORITES
+    // ========================================================================
+
+    private fun observeFavorites() {
+        viewModelScope.launch {
+            try {
+                favoriteRepository.getFavoriteTracks().collect { favoriteTracks ->
+                    _favoriteTracks.value = favoriteTracks.map { it.id }.toSet()
+                    android.util.Log.d("LibraryViewModel", "Favorites updated: ${favoriteTracks.size}")
                 }
             } catch (e: Exception) {
-                android.util.Log.e("LibraryViewModel", "Search error", e)
-                _error.value = "Search failed: ${e.message}"
-            }
-        }
-    }
-
-    fun clearSearch() {
-        viewModelScope.launch {
-            android.util.Log.d("LibraryViewModel", "Clearing search")
-            isSearching = false
-            trackRepository.getAllTracks().collect { trackList ->
-                _tracks.value = trackList
+                android.util.Log.e("LibraryViewModel", "Error observing favorites", e)
             }
         }
     }
@@ -149,103 +241,196 @@ class LibraryViewModel @Inject constructor(
                 val isFavorite = _favoriteTracks.value.contains(trackId)
 
                 if (isFavorite) {
-                    android.util.Log.d("LibraryViewModel", "Removing track $trackId from favorites")
                     favoriteRepository.removeFromFavorites(trackId)
-                    _successMessage.value = "Retiré des favoris"
+                    showSuccessMessage("Retiré des favoris")
+                    android.util.Log.d("LibraryViewModel", "Removed from favorites: $trackId")
                 } else {
-                    android.util.Log.d("LibraryViewModel", "Adding track $trackId to favorites")
                     favoriteRepository.addToFavorites(trackId)
-                    _successMessage.value = "Ajouté aux favoris"
+                    showSuccessMessage("Ajouté aux favoris ❤️")
+                    android.util.Log.d("LibraryViewModel", "Added to favorites: $trackId")
                 }
-
-                // Effacer le message après 2 secondes
-                kotlinx.coroutines.delay(2000)
-                _successMessage.value = null
             } catch (e: Exception) {
+                _error.value = "Erreur favoris: ${e.message}"
                 android.util.Log.e("LibraryViewModel", "Error toggling favorite", e)
-                _error.value = "Erreur: ${e.message}"
             }
         }
     }
 
-    fun isFavorite(trackId: Long): Boolean {
-        return _favoriteTracks.value.contains(trackId)
-    }
-
-    fun addTrackToPlaylist(playlistId: Long, trackId: Long) {
+    fun shareTrack(track: Track) {
         viewModelScope.launch {
             try {
-                android.util.Log.d("LibraryViewModel", "Adding track $trackId to playlist $playlistId")
-                playlistRepository.addTrackToPlaylist(playlistId, trackId)
-
-                loadPlaylists()
-
-                _successMessage.value = "Morceau ajouté à la playlist"
-                android.util.Log.d("LibraryViewModel", "Track added successfully")
-
-                kotlinx.coroutines.delay(3000)
-                _successMessage.value = null
-            } catch (e: Exception) {
-                android.util.Log.e("LibraryViewModel", "Error adding track to playlist", e)
-                _error.value = "Échec de l'ajout: ${e.message}"
-            }
-        }
-    }
-
-    fun createPlaylistAndAddTrack(playlistName: String, trackId: Long) {
-        viewModelScope.launch {
-            try {
-                android.util.Log.d("LibraryViewModel", "Creating playlist '$playlistName' and adding track $trackId")
-
-                val playlistId = playlistRepository.createPlaylist(playlistName)
-                android.util.Log.d("LibraryViewModel", "Playlist created with ID: $playlistId")
-
-                playlistRepository.addTrackToPlaylist(playlistId, trackId)
-                android.util.Log.d("LibraryViewModel", "Track added to new playlist")
-
-                loadPlaylists()
-
-                _successMessage.value = "Playlist '$playlistName' créée et morceau ajouté"
-
-                kotlinx.coroutines.delay(3000)
-                _successMessage.value = null
-            } catch (e: Exception) {
-                android.util.Log.e("LibraryViewModel", "Error creating playlist", e)
-                _error.value = "Échec de la création: ${e.message}"
-            }
-        }
-    }
-
-    fun playTrackFromList(selectedTrack: Track) {
-        viewModelScope.launch {
-            val allTracks = _tracks.value
-            if (allTracks.isNotEmpty()) {
-                val startIndex = allTracks.indexOfFirst { it.id == selectedTrack.id }
-                if (startIndex >= 0) {
-                    android.util.Log.d("LibraryViewModel", "Playing playlist from index $startIndex, total tracks: ${allTracks.size}")
-                    playPlaylist(allTracks, startIndex)
-                } else {
-                    android.util.Log.e("LibraryViewModel", "Track not found in list")
+                val shareText = buildString {
+                    append("🎵 ${track.title}\n")
+                    append("👤 ${track.artist}\n")
+                    append("💿 ${track.album}\n")
+                    append("\nÉcoute ce morceau avec SonicFlow!")
                 }
+
+                val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                    type = "text/plain"
+                    putExtra(Intent.EXTRA_SUBJECT, "🎵 ${track.title}")
+                    putExtra(Intent.EXTRA_TEXT, shareText)
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+
+                val chooserIntent = Intent.createChooser(shareIntent, "Partager via").apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+
+                context.startActivity(chooserIntent)
+                android.util.Log.d("LibraryViewModel", "Shared track: ${track.title}")
+            } catch (e: Exception) {
+                _error.value = "Erreur de partage: ${e.message}"
+                android.util.Log.e("LibraryViewModel", "Error sharing track", e)
             }
         }
     }
 
-    private suspend fun playPlaylist(tracks: List<Track>, startIndex: Int) {
-        try {
-            android.util.Log.d("LibraryViewModel", "Starting playlist with ${tracks.size} tracks at index $startIndex")
-            audioPlayerRepository.playTrackList(tracks, startIndex)
-        } catch (e: Exception) {
-            android.util.Log.e("LibraryViewModel", "Error playing playlist", e)
-            _error.value = "Failed to play: ${e.message}"
+    fun showTrackDetails(track: Track) {
+        viewModelScope.launch {
+            try {
+                val details = buildString {
+                    appendLine("📀 INFORMATIONS DU MORCEAU\n")
+                    appendLine("🎵 Titre")
+                    appendLine("   ${track.title}\n")
+                    appendLine("👤 Artiste")
+                    appendLine("   ${track.artist}\n")
+                    appendLine("💿 Album")
+                    appendLine("   ${track.album}\n")
+                    appendLine("⏱️ Durée")
+                    appendLine("   ${formatDuration(track.duration)}\n")
+                    appendLine("🆔 ID")
+                    appendLine("   ${track.id}\n")
+                    appendLine("📁 Emplacement")
+                    appendLine("   ${track.uri}")
+                }
+
+                _trackDetailsText.value = details
+                _showTrackDetailsDialog.value = true
+
+                android.util.Log.d("LibraryViewModel", "Showing details for: ${track.title}")
+            } catch (e: Exception) {
+                _error.value = "Erreur: ${e.message}"
+                android.util.Log.e("LibraryViewModel", "Error showing details", e)
+            }
+        }
+    }
+
+    fun dismissTrackDetails() {
+        _showTrackDetailsDialog.value = false
+    }
+
+
+    fun deleteTrack(trackId: Long) {
+        viewModelScope.launch {
+            try {
+                val track = _allTracks.value.find { it.id == trackId }
+                if (track == null) {
+                    _error.value = "Morceau introuvable"
+                    return@launch
+                }
+
+                // Supprimer du MediaStore (Android 10+)
+                val deleted = try {
+                    val uri = ContentUris.withAppendedId(
+                        MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
+                        trackId
+                    )
+
+                    val rows = context.contentResolver.delete(uri, null, null)
+                    rows > 0
+                } catch (e: SecurityException) {
+                    // Sur Android 10+, on pourrait avoir besoin d'une permission utilisateur
+                    // Pour l'instant, on retire juste de la liste
+                    android.util.Log.w("LibraryViewModel", "Security exception: ${e.message}")
+                    false
+                } catch (e: Exception) {
+                    android.util.Log.e("LibraryViewModel", "Error deleting from MediaStore", e)
+                    false
+                }
+
+                // Retirer de la liste locale
+                val updatedAllTracks = _allTracks.value.filter { it.id != trackId }
+                _allTracks.value = updatedAllTracks
+                _tracks.value = _tracks.value.filter { it.id != trackId }
+
+                if (deleted) {
+                    showSuccessMessage("\"${track.title}\" supprimé définitivement")
+                } else {
+                    showSuccessMessage("\"${track.title}\" retiré de la bibliothèque")
+                }
+
+                android.util.Log.d("LibraryViewModel", "Deleted track: ${track.title}")
+            } catch (e: Exception) {
+                _error.value = "Erreur de suppression: ${e.message}"
+                android.util.Log.e("LibraryViewModel", "Error deleting track", e)
+            }
+        }
+    }
+
+
+    private val _navigateToAlbum = MutableStateFlow<String?>(null)
+    val navigateToAlbum: StateFlow<String?> = _navigateToAlbum.asStateFlow()
+
+    fun goToAlbum(albumName: String) {
+        viewModelScope.launch {
+            try {
+                _navigateToAlbum.value = albumName
+                android.util.Log.d("LibraryViewModel", "Navigate to album: $albumName")
+            } catch (e: Exception) {
+                _error.value = "Erreur: ${e.message}"
+                android.util.Log.e("LibraryViewModel", "Error navigating to album", e)
+            }
+        }
+    }
+
+    fun clearAlbumNavigation() {
+        _navigateToAlbum.value = null
+    }
+
+
+    private val _navigateToArtist = MutableStateFlow<String?>(null)
+    val navigateToArtist: StateFlow<String?> = _navigateToArtist.asStateFlow()
+
+    fun goToArtist(artistName: String) {
+        viewModelScope.launch {
+            try {
+                _navigateToArtist.value = artistName
+                android.util.Log.d("LibraryViewModel", "Navigate to artist: $artistName")
+            } catch (e: Exception) {
+                _error.value = "Erreur: ${e.message}"
+                android.util.Log.e("LibraryViewModel", "Error navigating to artist", e)
+            }
+        }
+    }
+
+    fun clearArtistNavigation() {
+        _navigateToArtist.value = null
+    }
+
+    private fun formatDuration(millis: Long): String {
+        if (millis < 0) return "0:00"
+
+        val seconds = (millis / 1000) % 60
+        val minutes = (millis / (1000 * 60)) % 60
+        val hours = millis / (1000 * 60 * 60)
+
+        return if (hours > 0) {
+            String.format("%d:%02d:%02d", hours, minutes, seconds)
+        } else {
+            String.format("%d:%02d", minutes, seconds)
+        }
+    }
+
+    fun showSuccessMessage(message: String) {
+        viewModelScope.launch {
+            _successMessage.value = message
+            kotlinx.coroutines.delay(3000)
+            _successMessage.value = null
         }
     }
 
     fun clearError() {
         _error.value = null
-    }
-
-    fun clearSuccessMessage() {
-        _successMessage.value = null
     }
 }

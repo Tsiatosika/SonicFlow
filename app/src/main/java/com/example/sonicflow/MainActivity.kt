@@ -23,8 +23,6 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
-import com.example.sonicflow.domain.model.Album
-import com.example.sonicflow.domain.model.Artist
 import com.example.sonicflow.presentation.screen.album.AlbumDetailScreen
 import com.example.sonicflow.presentation.screen.album.AlbumViewModel
 import com.example.sonicflow.presentation.screen.artist.ArtistDetailScreen
@@ -36,6 +34,8 @@ import com.example.sonicflow.presentation.screen.player.PlayerScreen
 import com.example.sonicflow.presentation.screen.playlist.PlaylistDetailScreen
 import com.example.sonicflow.presentation.theme.SonicFlowTheme
 import dagger.hilt.android.AndroidEntryPoint
+import java.net.URLDecoder
+import java.net.URLEncoder
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -107,18 +107,13 @@ fun AppNavigation() {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route ?: ""
 
-    // Shared state pour les données complexes (Artist, Album)
-    var selectedArtist: Artist? = null
-    var selectedAlbum: Album? = null
-
     Column(modifier = Modifier.fillMaxSize()) {
-        // NavHost — occupe tout l'espace restant
         NavHost(
             navController = navController,
             startDestination = Screen.Home.route,
             modifier = Modifier.weight(1f)
         ) {
-            // Home avec 5 onglets
+            // HOME avec 5 onglets
             composable(Screen.Home.route) {
                 val libraryViewModel: LibraryViewModel = hiltViewModel()
                 HomeScreen(
@@ -129,52 +124,69 @@ fun AppNavigation() {
                     onPlaylistDetailClick = { playlistId ->
                         navController.navigate("${Screen.PlaylistDetail.route}/$playlistId")
                     },
-                    onArtistDetailClick = { artist ->
-                        selectedArtist = artist
-                        navController.navigate(Screen.ArtistDetail.route)
+
+                    onArtistDetailClick = { artistName ->
+                        val encoded = URLEncoder.encode(artistName, "UTF-8")
+                        navController.navigate("${Screen.ArtistDetail.route}/$encoded")
                     },
-                    onAlbumDetailClick = { album ->
-                        selectedAlbum = album
-                        navController.navigate(Screen.AlbumDetail.route)
+                    onAlbumDetailClick = { albumName, artistName ->
+                        val encodedAlbum = URLEncoder.encode(albumName, "UTF-8")
+                        val encodedArtist = URLEncoder.encode(artistName, "UTF-8")
+                        navController.navigate("${Screen.AlbumDetail.route}/$encodedAlbum/$encodedArtist")
                     }
                 )
             }
 
-            // Détail Album
-            composable(Screen.AlbumDetail.route) {
-                val album = selectedAlbum
+            // ALBUM DETAIL - Reçoit albumName + artistName
+            composable(
+                route = "${Screen.AlbumDetail.route}/{albumName}/{artistName}",
+                arguments = listOf(
+                    navArgument("albumName") { type = NavType.StringType },
+                    navArgument("artistName") { type = NavType.StringType }
+                )
+            ) { backStackEntry ->
+                val encodedAlbumName = backStackEntry.arguments?.getString("albumName") ?: ""
+                val encodedArtistName = backStackEntry.arguments?.getString("artistName") ?: ""
+
+                val albumName = URLDecoder.decode(encodedAlbumName, "UTF-8")
+                val artistName = URLDecoder.decode(encodedArtistName, "UTF-8")
+
                 val albumViewModel: AlbumViewModel = hiltViewModel()
-                if (album != null) {
-                    AlbumDetailScreen(
-                        album = album,
-                        onBackClick = { navController.navigateUp() },
-                        onTrackClick = { track ->
-                            albumViewModel.playAlbumTracks(album, album.tracks.indexOf(track))
-                            navController.navigate("${Screen.Player.route}/${track.id}")
-                        },
-                        viewModel = albumViewModel
-                    )
-                }
+
+                AlbumDetailScreen(
+                    albumName = albumName,
+                    artistName = artistName,
+                    onBackClick = { navController.navigateUp() },
+                    onTrackClick = { track ->
+                        navController.navigate("${Screen.Player.route}/${track.id}")
+                    },
+                    viewModel = albumViewModel
+                )
             }
 
-            // Détail Artiste
-            composable(Screen.ArtistDetail.route) {
-                val artist = selectedArtist
+            // ARTIST DETAIL - Reçoit artistName
+            composable(
+                route = "${Screen.ArtistDetail.route}/{artistName}",
+                arguments = listOf(
+                    navArgument("artistName") { type = NavType.StringType }
+                )
+            ) { backStackEntry ->
+                val encodedArtistName = backStackEntry.arguments?.getString("artistName") ?: ""
+                val artistName = URLDecoder.decode(encodedArtistName, "UTF-8")
+
                 val artistViewModel: ArtistViewModel = hiltViewModel()
-                if (artist != null) {
-                    ArtistDetailScreen(
-                        artist = artist,
-                        onBackClick = { navController.navigateUp() },
-                        onTrackClick = { track ->
-                            artistViewModel.playArtistTracks(artist, artist.tracks.indexOf(track))
-                            navController.navigate("${Screen.Player.route}/${track.id}")
-                        },
-                        viewModel = artistViewModel
-                    )
-                }
+
+                ArtistDetailScreen(
+                    artistName = artistName,
+                    onBackClick = { navController.navigateUp() },
+                    onTrackClick = { track ->
+                        navController.navigate("${Screen.Player.route}/${track.id}")
+                    },
+                    viewModel = artistViewModel
+                )
             }
 
-            // Détail Playlist
+            // PLAYLIST DETAIL
             composable(
                 route = "${Screen.PlaylistDetail.route}/{playlistId}",
                 arguments = listOf(
@@ -191,7 +203,7 @@ fun AppNavigation() {
                 )
             }
 
-            // Player plein écran
+            // PLAYER PLEIN ÉCRAN
             composable("${Screen.Player.route}/{trackId}") { backStackEntry ->
                 val trackId = backStackEntry.arguments?.getString("trackId")?.toLongOrNull()
                 PlayerScreen(
@@ -201,7 +213,7 @@ fun AppNavigation() {
             }
         }
 
-        // MiniPlayer — toujours rendu, visibilité gérée en interne
+        // MINIPLAYER - Toujours rendu
         MiniPlayer(
             onPlayerClick = {
                 navController.navigate("${Screen.Player.route}/0")

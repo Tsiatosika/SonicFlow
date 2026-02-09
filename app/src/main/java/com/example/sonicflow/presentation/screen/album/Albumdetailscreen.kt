@@ -12,29 +12,43 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.example.sonicflow.domain.model.Album
 import com.example.sonicflow.domain.model.Track
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AlbumDetailScreen(
-    album: Album,
+    albumName: String,      // ✅ Juste le nom
+    artistName: String,     // ✅ Juste l'artiste
     onBackClick: () -> Unit,
     onTrackClick: (Track) -> Unit,
     viewModel: AlbumViewModel = hiltViewModel()
 ) {
+    // Reconstruire l'album depuis le ViewModel
+    val album by viewModel.getAlbumByName(albumName, artistName).collectAsState(initial = null)
+
+    // Afficher un loader pendant le chargement
+    if (album == null) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            CircularProgressIndicator()
+        }
+        return
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {
                     Column {
                         Text(
-                            text = album.name,
+                            text = album!!.name,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
                         Text(
-                            text = album.artist,
+                            text = album!!.artist,
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -48,11 +62,11 @@ fun AlbumDetailScreen(
             )
         },
         floatingActionButton = {
-            if (album.tracks.isNotEmpty()) {
+            if (album!!.tracks.isNotEmpty()) {
                 FloatingActionButton(
                     onClick = {
-                        viewModel.playAllAlbumTracks(album)
-                        onTrackClick(album.tracks.first())
+                        viewModel.playAllAlbumTracks(album!!)
+                        onTrackClick(album!!.tracks.first())
                     }
                 ) {
                     Icon(Icons.Default.PlayArrow, contentDescription = "Play all")
@@ -68,16 +82,16 @@ fun AlbumDetailScreen(
         ) {
             // Header
             item {
-                AlbumHeader(album = album)
+                AlbumHeader(album = album!!)
             }
 
             // Liste des morceaux
-            items(album.tracks, key = { it.id }) { track ->
+            items(album!!.tracks, key = { it.id }) { track ->
                 AlbumTrackItem(
                     track = track,
-                    trackNumber = album.tracks.indexOf(track) + 1,
+                    trackNumber = album!!.tracks.indexOf(track) + 1,
                     onClick = {
-                        viewModel.playAlbumTracks(album, album.tracks.indexOf(track))
+                        viewModel.playAlbumTracks(album!!, album!!.tracks.indexOf(track))
                         onTrackClick(track)
                     }
                 )
@@ -92,7 +106,7 @@ fun AlbumDetailScreen(
 }
 
 @Composable
-fun AlbumHeader(album: Album) {
+fun AlbumHeader(album: com.example.sonicflow.domain.model.Album) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         color = MaterialTheme.colorScheme.primaryContainer
@@ -101,7 +115,6 @@ fun AlbumHeader(album: Album) {
             modifier = Modifier.padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Album Cover Placeholder
             Surface(
                 color = MaterialTheme.colorScheme.primary,
                 shape = MaterialTheme.shapes.large,
@@ -163,7 +176,6 @@ fun AlbumHeader(album: Album) {
                 )
             }
 
-            // Durée totale
             val totalDuration = album.tracks.sumOf { it.duration }
             if (totalDuration > 0) {
                 Spacer(modifier = Modifier.height(4.dp))
@@ -199,7 +211,6 @@ fun AlbumTrackItem(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Track Number
             Box(
                 modifier = Modifier.size(32.dp),
                 contentAlignment = Alignment.Center
@@ -222,7 +233,6 @@ fun AlbumTrackItem(
                     overflow = TextOverflow.Ellipsis
                 )
 
-                // Afficher l'artiste si différent de l'artiste de l'album
                 if (track.artist.isNotEmpty()) {
                     Text(
                         text = track.artist,
@@ -234,7 +244,6 @@ fun AlbumTrackItem(
                 }
             }
 
-            // Duration
             if (track.duration > 0) {
                 Text(
                     text = formatDuration(track.duration),

@@ -27,8 +27,8 @@ import com.example.sonicflow.presentation.screen.playlist.PlaylistViewModel
 fun HomeScreen(
     onTrackClick: (Track) -> Unit,
     onPlaylistDetailClick: (Long) -> Unit,
-    onArtistDetailClick: (Artist) -> Unit,
-    onAlbumDetailClick: (Album) -> Unit,
+    onArtistDetailClick: (String) -> Unit,    // ✅ MainActivity expects String artistName
+    onAlbumDetailClick: (String, String) -> Unit,      // ✅ MainActivity expects (albumName, artistName)
     libraryViewModel: LibraryViewModel = hiltViewModel(),
     playlistViewModel: PlaylistViewModel = hiltViewModel(),
     favoritesViewModel: FavoritesViewModel = hiltViewModel(),
@@ -72,7 +72,7 @@ fun HomeScreen(
                 TopAppBar(
                     title = { Text("SonicFlow") },
                     actions = {
-                        // Bouton Search (disponible dans tous les onglets)
+                        // Bouton Search
                         IconButton(onClick = { isSearchActive = !isSearchActive }) {
                             Icon(
                                 if (isSearchActive) Icons.Default.Close else Icons.Default.Search,
@@ -80,7 +80,7 @@ fun HomeScreen(
                             )
                         }
 
-                        // Bouton Refresh (uniquement pour l'onglet Morceaux)
+                        // Bouton Refresh (onglet Morceaux)
                         if (selectedTabIndex == 0) {
                             IconButton(onClick = { libraryViewModel.refreshTracks() }) {
                                 Icon(Icons.Default.Refresh, contentDescription = "Refresh")
@@ -89,7 +89,7 @@ fun HomeScreen(
                     }
                 )
 
-                // Tabs avec ScrollableTabRow pour supporter 5 onglets
+                // Tabs
                 ScrollableTabRow(
                     selectedTabIndex = selectedTabIndex,
                     containerColor = MaterialTheme.colorScheme.surface,
@@ -100,7 +100,7 @@ fun HomeScreen(
                             selected = selectedTabIndex == index,
                             onClick = {
                                 selectedTabIndex = index
-                                isSearchActive = false // Fermer la recherche en changeant d'onglet
+                                isSearchActive = false
                             },
                             text = { Text(tab.title) },
                             icon = {
@@ -122,28 +122,40 @@ fun HomeScreen(
         ) {
             when (selectedTabIndex) {
                 0 -> {
-                    // Onglet Morceaux
+                    // ✅ ONGLET MORCEAUX - Convert Album/Artist objects to Strings
                     LibraryContent(
                         viewModel = libraryViewModel,
                         onTrackClick = onTrackClick,
+                        onAlbumClick = { album ->
+                            // Convert Album object to (albumName, artistName) Strings
+                            onAlbumDetailClick(album.name, album.artist)
+                        },
+                        onArtistClick = { artist ->
+                            // Convert Artist object to artistName String
+                            onArtistDetailClick(artist.name)
+                        },
                         isSearchActive = isSearchActive,
                         onSearchActiveChange = { isSearchActive = it }
                     )
                 }
                 1 -> {
-                    // Onglet Albums
+                    // Onglet Albums - Convert Album object to Strings
                     AlbumContent(
                         viewModel = albumViewModel,
-                        onAlbumClick = onAlbumDetailClick,
+                        onAlbumClick = { album ->
+                            onAlbumDetailClick(album.name, album.artist)
+                        },
                         isSearchActive = isSearchActive,
                         onSearchActiveChange = { isSearchActive = it }
                     )
                 }
                 2 -> {
-                    // Onglet Artistes
+                    // Onglet Artistes - Convert Artist object to String
                     ArtistContent(
                         viewModel = artistViewModel,
-                        onArtistClick = onArtistDetailClick,
+                        onArtistClick = { artist ->
+                            onArtistDetailClick(artist.name)
+                        },
                         isSearchActive = isSearchActive,
                         onSearchActiveChange = { isSearchActive = it }
                     )

@@ -12,21 +12,34 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.example.sonicflow.domain.model.Artist
 import com.example.sonicflow.domain.model.Track
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ArtistDetailScreen(
-    artist: Artist,
+    artistName: String,
     onBackClick: () -> Unit,
     onTrackClick: (Track) -> Unit,
     viewModel: ArtistViewModel = hiltViewModel()
 ) {
+    // Reconstruire l'artiste depuis le ViewModel
+    val artist by viewModel.getArtistByName(artistName).collectAsState(initial = null)
+
+    // Afficher un loader pendant le chargement
+    if (artist == null) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            CircularProgressIndicator()
+        }
+        return
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(artist.name) },
+                title = { Text(artist!!.name) },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Back")
@@ -35,11 +48,11 @@ fun ArtistDetailScreen(
             )
         },
         floatingActionButton = {
-            if (artist.tracks.isNotEmpty()) {
+            if (artist!!.tracks.isNotEmpty()) {
                 FloatingActionButton(
                     onClick = {
-                        viewModel.playAllArtistTracks(artist)
-                        onTrackClick(artist.tracks.first())
+                        viewModel.playAllArtistTracks(artist!!)
+                        onTrackClick(artist!!.tracks.first())
                     }
                 ) {
                     Icon(Icons.Default.PlayArrow, contentDescription = "Play all")
@@ -55,15 +68,15 @@ fun ArtistDetailScreen(
         ) {
             // Header
             item {
-                ArtistHeader(artist = artist)
+                ArtistHeader(artist = artist!!)
             }
 
             // Liste des morceaux
-            items(artist.tracks, key = { it.id }) { track ->
+            items(artist!!.tracks, key = { it.id }) { track ->
                 ArtistTrackItem(
                     track = track,
                     onClick = {
-                        viewModel.playArtistTracks(artist, artist.tracks.indexOf(track))
+                        viewModel.playArtistTracks(artist!!, artist!!.tracks.indexOf(track))
                         onTrackClick(track)
                     }
                 )
@@ -73,7 +86,7 @@ fun ArtistDetailScreen(
 }
 
 @Composable
-fun ArtistHeader(artist: Artist) {
+fun ArtistHeader(artist: com.example.sonicflow.domain.model.Artist) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         color = MaterialTheme.colorScheme.primaryContainer
@@ -82,7 +95,6 @@ fun ArtistHeader(artist: Artist) {
             modifier = Modifier.padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Artist Icon
             Surface(
                 color = MaterialTheme.colorScheme.primary,
                 shape = MaterialTheme.shapes.extraLarge,
@@ -172,7 +184,6 @@ fun ArtistTrackItem(
                 )
             }
 
-            // Duration
             if (track.duration > 0) {
                 Text(
                     text = formatDuration(track.duration),

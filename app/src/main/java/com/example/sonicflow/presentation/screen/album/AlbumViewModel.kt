@@ -3,13 +3,10 @@ package com.example.sonicflow.presentation.screen.album
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.sonicflow.domain.model.Album
-import com.example.sonicflow.domain.model.Track
 import com.example.sonicflow.domain.repository.AudioPlayerRepository
 import com.example.sonicflow.domain.repository.TrackRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -28,16 +25,11 @@ class AlbumViewModel @Inject constructor(
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
 
-    // État pour le tri
     private val _sortOrder = MutableStateFlow(SortOrder.ALBUM_NAME)
     val sortOrder: StateFlow<SortOrder> = _sortOrder.asStateFlow()
 
     enum class SortOrder {
-        ALBUM_NAME,      // A-Z par nom d'album
-        ARTIST_NAME,     // A-Z par artiste
-        YEAR_DESC,       // Année décroissante (plus récent d'abord)
-        YEAR_ASC,        // Année croissante
-        TRACK_COUNT      // Nombre de morceaux
+        ALBUM_NAME, ARTIST_NAME, YEAR_DESC, YEAR_ASC, TRACK_COUNT
     }
 
     init {
@@ -51,14 +43,10 @@ class AlbumViewModel @Inject constructor(
 
             try {
                 trackRepository.getAllTracks().collect { tracks ->
-                    // Grouper les morceaux par album
                     val albumsMap = tracks.groupBy { "${it.album}|${it.artist}" }
-
-                    // Créer la liste des albums avec leurs morceaux
                     val albumsList = albumsMap.map { (key, albumTracks) ->
                         val albumName = key.split("|")[0]
                         val artistName = key.split("|")[1]
-
                         val year = albumTracks.firstOrNull()?.year ?: 0
 
                         Album(
@@ -69,15 +57,33 @@ class AlbumViewModel @Inject constructor(
                             tracks = albumTracks.sortedBy { it.trackNumber }
                         )
                     }
-
                     _albums.value = sortAlbums(albumsList, _sortOrder.value)
-                    android.util.Log.d("AlbumViewModel", "Loaded ${albumsList.size} albums")
                     _isLoading.value = false
                 }
             } catch (e: Exception) {
-                android.util.Log.e("AlbumViewModel", "Error loading albums", e)
                 _error.value = "Failed to load albums: ${e.message}"
                 _isLoading.value = false
+            }
+        }
+    }
+
+    fun getAlbumByName(albumName: String, artistName: String): Flow<Album?> = flow {
+        trackRepository.getAllTracks().collect { tracks ->
+            val albumTracks = tracks.filter {
+                it.album == albumName && it.artist == artistName
+            }
+
+            if (albumTracks.isNotEmpty()) {
+                val album = Album(
+                    name = albumName,
+                    artist = artistName,
+                    trackCount = albumTracks.size,
+                    year = albumTracks.firstOrNull()?.year ?: 0,
+                    tracks = albumTracks.sortedBy { it.trackNumber }
+                )
+                emit(album)
+            } else {
+                emit(null)
             }
         }
     }
@@ -100,10 +106,8 @@ class AlbumViewModel @Inject constructor(
     fun playAlbumTracks(album: Album, startIndex: Int = 0) {
         viewModelScope.launch {
             try {
-                android.util.Log.d("AlbumViewModel", "Playing ${album.name} tracks from index $startIndex")
                 audioPlayerRepository.playTrackList(album.tracks, startIndex)
             } catch (e: Exception) {
-                android.util.Log.e("AlbumViewModel", "Error playing album tracks", e)
                 _error.value = "Failed to play: ${e.message}"
             }
         }

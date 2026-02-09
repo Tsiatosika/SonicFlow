@@ -1,8 +1,13 @@
 package com.example.sonicflow.presentation.screen.player
 
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.*
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
@@ -11,6 +16,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -24,18 +31,30 @@ fun MiniPlayer(
 ) {
     val currentTrack by viewModel.currentTrack.collectAsState()
     val playbackState by viewModel.playbackState.collectAsState()
-    val isVisible by viewModel.isVisible.collectAsState()
 
-    LaunchedEffect(hideOnPlayer) {
-        if (!hideOnPlayer) {
-            viewModel.refreshState()
-        }
+    // ✅ Le MiniPlayer est visible UNIQUEMENT si :
+    // 1. currentTrack n'est pas null (un morceau est chargé)
+    // 2. hideOnPlayer est false (on n'est pas sur le PlayerScreen)
+    val shouldShow = currentTrack != null && !hideOnPlayer
+
+    // ✅ Log pour debug
+    LaunchedEffect(currentTrack, hideOnPlayer) {
+        android.util.Log.d("MiniPlayer", "shouldShow=$shouldShow, currentTrack=${currentTrack?.title}, hideOnPlayer=$hideOnPlayer")
     }
 
     AnimatedVisibility(
-        visible = isVisible && currentTrack != null && !hideOnPlayer,
-        enter = slideInVertically { it },
-        exit = slideOutVertically { it }
+        visible = shouldShow,
+        enter = slideInVertically(
+            initialOffsetY = { it },
+            animationSpec = spring(
+                dampingRatio = Spring.DampingRatioMediumBouncy,
+                stiffness = Spring.StiffnessMedium
+            )
+        ) + fadeIn(),
+        exit = slideOutVertically(
+            targetOffsetY = { it },
+            animationSpec = tween(300)
+        ) + fadeOut()
     ) {
         Surface(
             modifier = Modifier
@@ -45,7 +64,7 @@ fun MiniPlayer(
             tonalElevation = 4.dp
         ) {
             Column {
-                // Progress bar en haut du mini player
+                // Progress bar animé
                 val progress = if (playbackState.duration > 0) {
                     (playbackState.currentPosition.toFloat() / playbackState.duration.toFloat()).coerceIn(0f, 1f)
                 } else 0f
@@ -65,25 +84,11 @@ fun MiniPlayer(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    // Icône album
-                    Surface(
-                        onClick = onPlayerClick,
-                        shape = MaterialTheme.shapes.small,
-                        color = MaterialTheme.colorScheme.primaryContainer,
-                        modifier = Modifier.size(52.dp)
-                    ) {
-                        Box(
-                            contentAlignment = Alignment.Center,
-                            modifier = Modifier.fillMaxSize()
-                        ) {
-                            Icon(
-                                Icons.Default.MusicNote,
-                                contentDescription = null,
-                                modifier = Modifier.size(28.dp),
-                                tint = MaterialTheme.colorScheme.onPrimaryContainer
-                            )
-                        }
-                    }
+                    // Album Art rotatif
+                    RotatingMiniAlbumArt(
+                        isPlaying = playbackState.isPlaying,
+                        onClick = onPlayerClick
+                    )
 
                     // Titre + Artiste
                     Column(
@@ -108,64 +113,155 @@ fun MiniPlayer(
                         )
                     }
 
-                    // Contrôles
+                    // Contrôles avec animations
                     Row(
-                        verticalAlignment = Alignment.CenterVertically
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(0.dp)
                     ) {
-                        IconButton(
+                        AnimatedControlButton(
                             onClick = { viewModel.skipToPrevious() },
-                            modifier = Modifier.size(40.dp)
-                        ) {
-                            Icon(
-                                Icons.Default.SkipPrevious,
-                                contentDescription = "Previous",
-                                modifier = Modifier.size(22.dp),
-                                tint = MaterialTheme.colorScheme.onSurface
-                            )
-                        }
+                            icon = Icons.Default.SkipPrevious
+                        )
 
-                        FilledIconButton(
-                            onClick = { viewModel.togglePlayPause() },
-                            modifier = Modifier.size(40.dp),
-                            colors = IconButtonDefaults.filledIconButtonColors(
-                                containerColor = MaterialTheme.colorScheme.primary,
-                                contentColor = MaterialTheme.colorScheme.onPrimary
-                            )
-                        ) {
-                            Icon(
-                                if (playbackState.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                                contentDescription = if (playbackState.isPlaying) "Pause" else "Play",
-                                modifier = Modifier.size(22.dp)
-                            )
-                        }
+                        // Play/Pause avec animation
+                        AnimatedPlayPauseButton(
+                            isPlaying = playbackState.isPlaying,
+                            onClick = { viewModel.togglePlayPause() }
+                        )
 
-                        IconButton(
+                        AnimatedControlButton(
                             onClick = { viewModel.skipToNext() },
-                            modifier = Modifier.size(40.dp)
-                        ) {
-                            Icon(
-                                Icons.Default.SkipNext,
-                                contentDescription = "Next",
-                                modifier = Modifier.size(22.dp),
-                                tint = MaterialTheme.colorScheme.onSurface
-                            )
-                        }
-
-                        // Fermer
-                        IconButton(
-                            onClick = { viewModel.hide() },
-                            modifier = Modifier.size(36.dp)
-                        ) {
-                            Icon(
-                                Icons.Default.Close,
-                                contentDescription = "Close",
-                                modifier = Modifier.size(18.dp),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
+                            icon = Icons.Default.SkipNext
+                        )
                     }
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun RotatingMiniAlbumArt(
+    isPlaying: Boolean,
+    onClick: () -> Unit
+) {
+    val infiniteTransition = rememberInfiniteTransition(label = "albumRotation")
+
+    val rotation by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(15000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "rotation"
+    )
+
+    val scale by animateFloatAsState(
+        targetValue = if (isPlaying) 1f else 0.95f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMedium
+        ),
+        label = "scale"
+    )
+
+    Surface(
+        onClick = onClick,
+        shape = MaterialTheme.shapes.small,
+        color = MaterialTheme.colorScheme.primaryContainer,
+        modifier = Modifier
+            .size(52.dp)
+            .scale(scale)
+            .rotate(if (isPlaying) rotation else 0f)
+    ) {
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier.fillMaxSize()
+        ) {
+            Icon(
+                Icons.Default.MusicNote,
+                contentDescription = null,
+                modifier = Modifier.size(28.dp),
+                tint = MaterialTheme.colorScheme.onPrimaryContainer
+            )
+        }
+    }
+}
+
+@Composable
+private fun AnimatedPlayPauseButton(
+    isPlaying: Boolean,
+    onClick: () -> Unit
+) {
+    val scale by animateFloatAsState(
+        targetValue = if (isPlaying) 1f else 1.1f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessLow
+        ),
+        label = "playPauseScale"
+    )
+
+    FilledIconButton(
+        onClick = onClick,
+        modifier = Modifier
+            .size(40.dp)
+            .scale(scale),
+        colors = IconButtonDefaults.filledIconButtonColors(
+            containerColor = MaterialTheme.colorScheme.primary,
+            contentColor = MaterialTheme.colorScheme.onPrimary
+        )
+    ) {
+        AnimatedContent(
+            targetState = isPlaying,
+            transitionSpec = {
+                fadeIn(tween(200)) togetherWith fadeOut(tween(200))
+            },
+            label = "playPauseIcon"
+        ) { playing ->
+            Icon(
+                if (playing) Icons.Default.Pause else Icons.Default.PlayArrow,
+                contentDescription = if (playing) "Pause" else "Play",
+                modifier = Modifier.size(22.dp)
+            )
+        }
+    }
+}
+
+@Composable
+private fun AnimatedControlButton(
+    onClick: () -> Unit,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    size: androidx.compose.ui.unit.Dp = 40.dp,
+    iconSize: androidx.compose.ui.unit.Dp = 22.dp
+) {
+    var isPressed by remember { mutableStateOf(false) }
+
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.9f else 1f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessHigh
+        ),
+        label = "buttonScale"
+    )
+
+    IconButton(
+        onClick = {
+            isPressed = true
+            onClick()
+            isPressed = false
+        },
+        modifier = Modifier
+            .size(size)
+            .scale(scale)
+    ) {
+        Icon(
+            icon,
+            contentDescription = null,
+            modifier = Modifier.size(iconSize),
+            tint = MaterialTheme.colorScheme.onSurface
+        )
     }
 }
