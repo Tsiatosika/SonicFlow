@@ -8,9 +8,11 @@ import com.example.sonicflow.data.local.database.entities.PlaylistTrackCrossRefE
 import com.example.sonicflow.domain.model.Playlist
 import com.example.sonicflow.domain.model.Track
 import com.example.sonicflow.domain.repository.PlaylistRepository
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 class PlaylistRepositoryImpl @Inject constructor(
@@ -79,6 +81,10 @@ class PlaylistRepositoryImpl @Inject constructor(
         return playlistDao.insert(playlist)
     }
 
+    override suspend fun renamePlaylist(playlistId: Long, newName: String) {
+        playlistDao.updatePlaylistName(playlistId, newName, System.currentTimeMillis())
+    }
+
     override suspend fun addTrackToPlaylist(playlistId: Long, trackId: Long) {
         val currentCount = playlistTrackCrossRefDao.getTrackCountForPlaylist(playlistId)
         val crossRef = PlaylistTrackCrossRefEntity(
@@ -98,4 +104,5 @@ class PlaylistRepositoryImpl @Inject constructor(
         playlistTrackCrossRefDao.removeAllTracksFromPlaylist(playlistId)
         playlistDao.deletePlaylistById(playlistId)
     }
+
 }

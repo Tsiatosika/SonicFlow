@@ -30,4 +30,8 @@ interface PlaylistDao {
 
     @Query("SELECT * FROM playlists WHERE name LIKE '%' || :searchQuery || '%'")
     suspend fun searchPlaylists(searchQuery: String): List<PlaylistEntity>
+
+    @Query("UPDATE playlists SET name = :newName, dateModified = :dateModified WHERE id = :playlistId")
+    suspend fun updatePlaylistName(playlistId: Long, newName: String, dateModified: Long): Int
+
 }

@@ -8,8 +8,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.example.sonicflow.domain.model.Album
-import com.example.sonicflow.domain.model.Artist
 import com.example.sonicflow.domain.model.Track
 import com.example.sonicflow.presentation.screen.album.AlbumContent
 import com.example.sonicflow.presentation.screen.album.AlbumViewModel
@@ -27,8 +25,8 @@ import com.example.sonicflow.presentation.screen.playlist.PlaylistViewModel
 fun HomeScreen(
     onTrackClick: (Track) -> Unit,
     onPlaylistDetailClick: (Long) -> Unit,
-    onArtistDetailClick: (String) -> Unit,    // ✅ MainActivity expects String artistName
-    onAlbumDetailClick: (String, String) -> Unit,      // ✅ MainActivity expects (albumName, artistName)
+    onArtistDetailClick: (String) -> Unit,           // ✅ String artistName
+    onAlbumDetailClick: (String, String) -> Unit,    // ✅ (albumName, artistName)
     libraryViewModel: LibraryViewModel = hiltViewModel(),
     playlistViewModel: PlaylistViewModel = hiltViewModel(),
     favoritesViewModel: FavoritesViewModel = hiltViewModel(),
@@ -122,24 +120,24 @@ fun HomeScreen(
         ) {
             when (selectedTabIndex) {
                 0 -> {
-                    // ✅ ONGLET MORCEAUX - Convert Album/Artist objects to Strings
+                    // ✅ ONGLET MORCEAUX - Passer directement les Strings
                     LibraryContent(
                         viewModel = libraryViewModel,
                         onTrackClick = onTrackClick,
-                        onAlbumClick = { album ->
-                            // Convert Album object to (albumName, artistName) Strings
-                            onAlbumDetailClick(album.name, album.artist)
+                        onAlbumClick = { albumName, artistName ->
+                            // ✅ FIX: Déjà des Strings, passer directement
+                            onAlbumDetailClick(albumName, artistName)
                         },
-                        onArtistClick = { artist ->
-                            // Convert Artist object to artistName String
-                            onArtistDetailClick(artist.name)
+                        onArtistClick = { artistName ->
+                            // ✅ FIX: Déjà un String, passer directement
+                            onArtistDetailClick(artistName)
                         },
                         isSearchActive = isSearchActive,
                         onSearchActiveChange = { isSearchActive = it }
                     )
                 }
                 1 -> {
-                    // Onglet Albums - Convert Album object to Strings
+                    // ✅ Onglet Albums - Convertir Album object en Strings
                     AlbumContent(
                         viewModel = albumViewModel,
                         onAlbumClick = { album ->
@@ -150,7 +148,7 @@ fun HomeScreen(
                     )
                 }
                 2 -> {
-                    // Onglet Artistes - Convert Artist object to String
+                    // ✅ Onglet Artistes - Convertir Artist object en String
                     ArtistContent(
                         viewModel = artistViewModel,
                         onArtistClick = { artist ->

@@ -11,6 +11,7 @@ interface PlaylistRepository {
     suspend fun addTrackToPlaylist(playlistId: Long, trackId: Long)
     suspend fun removeTrackFromPlaylist(playlistId: Long, trackId: Long)
     suspend fun deletePlaylist(playlistId: Long)
+    suspend fun renamePlaylist(playlistId:  Long, newName: String)
 
     data class PlaylistWithTracks(
         val playlist: Playlist,

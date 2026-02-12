@@ -21,11 +21,23 @@ class PlaylistViewModel @Inject constructor(
     private val audioPlayerRepository: AudioPlayerRepository
 ) : ViewModel() {
 
+    // ============================================================================
+    // STATE FLOWS
+    // ============================================================================
+
     private val _playlists = MutableStateFlow<List<Playlist>>(emptyList())
     val playlists: StateFlow<List<Playlist>> = _playlists.asStateFlow()
 
-    private val _currentPlaylistWithTracks = MutableStateFlow<PlaylistRepository.PlaylistWithTracks?>(null)
-    val currentPlaylistWithTracks: StateFlow<PlaylistRepository.PlaylistWithTracks?> = _currentPlaylistWithTracks.asStateFlow()
+    // ✅ FIX 1: Ajouter currentPlaylist et playlistTracks
+    private val _currentPlaylist = MutableStateFlow<Playlist?>(null)
+    val currentPlaylist: StateFlow<Playlist?> = _currentPlaylist.asStateFlow()
+
+    private val _playlistTracks = MutableStateFlow<List<Track>>(emptyList())
+    val playlistTracks: StateFlow<List<Track>> = _playlistTracks.asStateFlow()
+
+    // ✅ FIX 2: Ajouter currentPlayingTrack
+    private val _currentPlayingTrack = MutableStateFlow<Track?>(null)
+    val currentPlayingTrack: StateFlow<Track?> = _currentPlayingTrack.asStateFlow()
 
     private val _allTracks = MutableStateFlow<List<Track>>(emptyList())
     val allTracks: StateFlow<List<Track>> = _allTracks.asStateFlow()
@@ -38,7 +50,24 @@ class PlaylistViewModel @Inject constructor(
 
     init {
         loadPlaylists()
+        observeCurrentTrack()
     }
+
+    // ============================================================================
+    // OBSERVERS
+    // ============================================================================
+
+    private fun observeCurrentTrack() {
+        viewModelScope.launch {
+            audioPlayerRepository.getCurrentPlayingTrack().collect { track ->
+                _currentPlayingTrack.value = track
+            }
+        }
+    }
+
+    // ============================================================================
+    // PLAYLIST OPERATIONS
+    // ============================================================================
 
     fun loadPlaylists() {
         viewModelScope.launch {
@@ -57,14 +86,22 @@ class PlaylistViewModel @Inject constructor(
         }
     }
 
-    fun loadPlaylistWithTracks(playlistId: Long) {
+    // ✅ FIX 3: Ajouter loadPlaylist qui charge playlist + tracks
+    fun loadPlaylist(playlistId: Long) {
         viewModelScope.launch {
             _isLoading.value = true
             try {
                 android.util.Log.d("PlaylistViewModel", "Loading playlist with ID: $playlistId")
+
+                // Charger la playlist avec ses tracks
                 playlistRepository.getPlaylistWithTracks(playlistId).collect { playlistWithTracks ->
-                    _currentPlaylistWithTracks.value = playlistWithTracks
-                    android.util.Log.d("PlaylistViewModel", "Playlist loaded: ${playlistWithTracks.playlist.name}, tracks: ${playlistWithTracks.tracks.size}")
+                    _currentPlaylist.value = playlistWithTracks.playlist
+                    _playlistTracks.value = playlistWithTracks.tracks
+
+                    android.util.Log.d(
+                        "PlaylistViewModel",
+                        "Playlist loaded: ${playlistWithTracks.playlist.name}, tracks: ${playlistWithTracks.tracks.size}"
+                    )
                     _isLoading.value = false
                 }
             } catch (e: Exception) {
@@ -101,6 +138,43 @@ class PlaylistViewModel @Inject constructor(
         }
     }
 
+    // ✅ FIX 4: Ajouter renamePlaylist
+    fun renamePlaylist(playlistId: Long, newName: String) {
+        viewModelScope.launch {
+            try {
+                android.util.Log.d("PlaylistViewModel", "Renaming playlist $playlistId to $newName")
+                playlistRepository.renamePlaylist(playlistId, newName)
+
+                // Recharger la playlist
+                loadPlaylist(playlistId)
+                loadPlaylists()
+
+                android.util.Log.d("PlaylistViewModel", "Playlist renamed successfully")
+            } catch (e: Exception) {
+                android.util.Log.e("PlaylistViewModel", "Error renaming playlist", e)
+                _error.value = "Failed to rename playlist: ${e.message}"
+            }
+        }
+    }
+
+    fun deletePlaylist(playlistId: Long) {
+        viewModelScope.launch {
+            try {
+                android.util.Log.d("PlaylistViewModel", "Deleting playlist $playlistId")
+                playlistRepository.deletePlaylist(playlistId)
+                loadPlaylists()
+                android.util.Log.d("PlaylistViewModel", "Playlist deleted")
+            } catch (e: Exception) {
+                android.util.Log.e("PlaylistViewModel", "Error deleting playlist", e)
+                _error.value = "Failed to delete playlist: ${e.message}"
+            }
+        }
+    }
+
+    // ============================================================================
+    // TRACK OPERATIONS
+    // ============================================================================
+
     fun addTrackToPlaylist(playlistId: Long, trackId: Long) {
         viewModelScope.launch {
             try {
@@ -108,8 +182,8 @@ class PlaylistViewModel @Inject constructor(
                 playlistRepository.addTrackToPlaylist(playlistId, trackId)
 
                 // Recharger la playlist actuelle si c'est celle qui est affichée
-                if (_currentPlaylistWithTracks.value?.playlist?.id == playlistId) {
-                    loadPlaylistWithTracks(playlistId)
+                if (_currentPlaylist.value?.id == playlistId) {
+                    loadPlaylist(playlistId)
                 }
 
                 // Recharger toutes les playlists pour mettre à jour les compteurs
@@ -130,7 +204,7 @@ class PlaylistViewModel @Inject constructor(
                 playlistRepository.removeTrackFromPlaylist(playlistId, trackId)
 
                 // Recharger la playlist
-                loadPlaylistWithTracks(playlistId)
+                loadPlaylist(playlistId)
                 loadPlaylists()
 
                 android.util.Log.d("PlaylistViewModel", "Track removed successfully")
@@ -141,18 +215,32 @@ class PlaylistViewModel @Inject constructor(
         }
     }
 
-    fun deletePlaylist(playlistId: Long) {
+    // ============================================================================
+    // PLAYBACK OPERATIONS
+    // ============================================================================
+
+    // ✅ FIX 5: Ajouter playPlaylistTracks avec index
+    fun playPlaylistTracks(startIndex: Int = 0) {
         viewModelScope.launch {
             try {
-                android.util.Log.d("PlaylistViewModel", "Deleting playlist $playlistId")
-                playlistRepository.deletePlaylist(playlistId)
-                loadPlaylists()
-                android.util.Log.d("PlaylistViewModel", "Playlist deleted")
+                val tracks = _playlistTracks.value
+                if (tracks.isNotEmpty()) {
+                    android.util.Log.d(
+                        "PlaylistViewModel",
+                        "Playing playlist: ${tracks.size} tracks, starting at $startIndex"
+                    )
+                    audioPlayerRepository.playTrackList(tracks, startIndex)
+                }
             } catch (e: Exception) {
-                android.util.Log.e("PlaylistViewModel", "Error deleting playlist", e)
-                _error.value = "Failed to delete playlist: ${e.message}"
+                android.util.Log.e("PlaylistViewModel", "Error playing playlist", e)
+                _error.value = "Failed to play: ${e.message}"
             }
         }
+    }
+
+    // ✅ FIX 6: Ajouter playAllPlaylistTracks
+    fun playAllPlaylistTracks() {
+        playPlaylistTracks(0)
     }
 
     fun playPlaylist(tracks: List<Track>, startIndex: Int = 0) {

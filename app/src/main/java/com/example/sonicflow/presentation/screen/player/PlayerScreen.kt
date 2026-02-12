@@ -1,28 +1,40 @@
 package com.example.sonicflow.presentation.screen.player
 
-import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.*
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import com.example.sonicflow.presentation.screen.waveform.WaveformViewModel
 import com.example.sonicflow.presentation.screen.waveform.WaveformVisualizer
+
+// Couleurs du gradient moderne
+private val gradientColors = listOf(
+    Color(0xFFE94560),  // Rouge vibrant
+    Color(0xFFD946EF),  // Magenta
+    Color(0xFF8B5CF6)   // Violet profond
+)
 
 @androidx.annotation.OptIn(UnstableApi::class)
 @OptIn(ExperimentalMaterial3Api::class)
@@ -38,69 +50,56 @@ fun PlayerScreen(
     val isShuffleEnabled by viewModel.isShuffleEnabled.collectAsState()
     val repeatMode by viewModel.repeatMode.collectAsState()
     val isFavorite by viewModel.isFavorite.collectAsState()
-
     val waveformData by waveformViewModel.waveformData.collectAsState()
-    val isWaveformLoading by waveformViewModel.isLoading.collectAsState()
 
+    // Charger le morceau si nécessaire
     LaunchedEffect(trackId) {
-        trackId?.let {
-            android.util.Log.d("PlayerScreen", "Loading track with ID: $it")
-            viewModel.loadAndPlayTrack(it)
+        if (trackId != null && trackId != 0L) {
+            viewModel.loadAndPlayTrack(trackId)
+            waveformViewModel.loadWaveform(trackId)
         }
     }
 
-    LaunchedEffect(currentTrack) {
-        currentTrack?.let { track ->
-            android.util.Log.d("PlayerScreen", "Loading waveform for current track: ${track.id}")
-            waveformViewModel.loadWaveform(track.id)
+    LaunchedEffect(currentTrack?.id) {
+        val id = currentTrack?.id
+        if (id != null && id != 0L) {
+            waveformViewModel.loadWaveform(id)
         }
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Now Playing") },
-                navigationIcon = {
-                    IconButton(onClick = onBackClick) {
-                        Icon(
-                            Icons.Default.ArrowBack,
-                            contentDescription = "Back"
-                        )
-                    }
-                },
-                actions = {
-                    // Bouton Favoris avec animation
-                    AnimatedFavoriteButton(
-                        isFavorite = isFavorite,
-                        onClick = {
-                            currentTrack?.let { track ->
-                                viewModel.toggleFavorite(track.id)
-                            }
-                        }
-                    )
-                }
-            )
-        }
-    ) { paddingValues ->
+    Box(modifier = Modifier.fillMaxSize()) {
+        // Background gradient animé
+        AnimatedGradientBackground()
+
+        // Contenu principal
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues)
-                .padding(horizontal = 24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+                .statusBarsPadding()
         ) {
-            Spacer(modifier = Modifier.height(32.dp))
+            // Top Bar moderne (SANS "Now Playing")
+            ModernTopBar(
+                onBackClick = onBackClick,
+                isFavorite = isFavorite,
+                onFavoriteClick = {
+                    currentTrack?.let { viewModel.toggleFavorite(it.id) }
+                }
+            )
 
-            // Album Art ROTATIF géant
-            RotatingAlbumArt(
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Album Art rotatif avec effet glass
+            GlassAlbumArt(
                 isPlaying = playbackState.isPlaying,
-                size = 320.dp
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 40.dp)
             )
 
             Spacer(modifier = Modifier.height(40.dp))
 
-            // Track Info avec animation
-            AnimatedTrackInfo(
+            // Track Info avec style moderne
+            ModernTrackInfo(
                 title = currentTrack?.title ?: "Loading...",
                 artist = currentTrack?.artist ?: "Unknown Artist"
             )
@@ -108,55 +107,25 @@ fun PlayerScreen(
             Spacer(modifier = Modifier.weight(1f))
 
             // Waveform
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                if (isWaveformLoading) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(100.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        CircularProgressIndicator(modifier = Modifier.size(32.dp))
-                    }
-                } else {
-                    WaveformVisualizer(
-                        waveformData = waveformData,
-                        currentPosition = playbackState.currentPosition,
-                        duration = playbackState.duration,
-                        onSeek = { position ->
-                            viewModel.seekTo(position)
-                        },
-                        waveformColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f),
-                        backgroundColor = MaterialTheme.colorScheme.surfaceVariant
-                    )
-                }
+            WaveformVisualizer(
+                waveformData = waveformData,
+                currentPosition = playbackState.currentPosition,
+                duration = playbackState.duration,
+                onSeek = { position -> viewModel.seekTo(position) }
+            )
 
-                Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(
-                        text = viewModel.formatDuration(playbackState.currentPosition),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-                    )
-                    Text(
-                        text = viewModel.formatDuration(playbackState.duration),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-                    )
-                }
-            }
+            // Time labels
+            TimeLabels(
+                currentTime = viewModel.formatDuration(playbackState.currentPosition),
+                totalTime = viewModel.formatDuration(playbackState.duration)
+            )
 
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(24.dp))
 
-            // Playback Controls avec animations
-            AnimatedPlaybackControls(
+            // Contrôles modernes
+            ModernControls(
                 isPlaying = playbackState.isPlaying,
                 isShuffleEnabled = isShuffleEnabled,
                 repeatMode = repeatMode,
@@ -167,18 +136,131 @@ fun PlayerScreen(
                 onRepeatClick = { viewModel.toggleRepeatMode() }
             )
 
-            Spacer(modifier = Modifier.height(48.dp))
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // ✅ "NOW PLAYING" EN BAS
+            Text(
+                text = "NOW PLAYING",
+                style = MaterialTheme.typography.labelLarge.copy(
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 13.sp,
+                    letterSpacing = 2.sp,
+                    color = Color.White.copy(alpha = 0.6f)
+                ),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 24.dp),
+                textAlign = TextAlign.Center
+            )
         }
     }
 }
 
 @Composable
-private fun RotatingAlbumArt(
+private fun AnimatedGradientBackground() {
+    val infiniteTransition = rememberInfiniteTransition(label = "gradient")
+
+    val offset by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1000f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(10000, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "gradientOffset"
+    )
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(
+                Brush.linearGradient(
+                    colors = gradientColors,
+                    start = Offset(offset, offset),
+                    end = Offset(offset + 800f, offset + 800f)
+                )
+            )
+            .blur(100.dp)
+    )
+
+    // Overlay sombre pour lisibilité
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.4f))
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ModernTopBar(
+    onBackClick: () -> Unit,
+    isFavorite: Boolean,
+    onFavoriteClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 8.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // Back button avec effet glass
+        Surface(
+            onClick = onBackClick,
+            shape = CircleShape,
+            color = Color.White.copy(alpha = 0.15f),
+            modifier = Modifier.size(44.dp)
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    Icons.Default.KeyboardArrowDown,
+                    contentDescription = "Back",
+                    tint = Color.White,
+                    modifier = Modifier.size(28.dp)
+                )
+            }
+        }
+
+        // ✅ SPACER pour centrer le bouton favori
+        Spacer(modifier = Modifier.weight(1f))
+
+        // Favorite button avec animation
+        val scale by animateFloatAsState(
+            targetValue = if (isFavorite) 1.2f else 1f,
+            animationSpec = spring(
+                dampingRatio = Spring.DampingRatioMediumBouncy,
+                stiffness = Spring.StiffnessMedium
+            ),
+            label = "favoriteScale"
+        )
+
+        Surface(
+            onClick = onFavoriteClick,
+            shape = CircleShape,
+            color = if (isFavorite) Color.White.copy(alpha = 0.25f) else Color.White.copy(alpha = 0.15f),
+            modifier = Modifier
+                .size(44.dp)
+                .scale(scale)
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                    contentDescription = if (isFavorite) "Remove from favorites" else "Add to favorites",
+                    tint = if (isFavorite) Color(0xFFE94560) else Color.White,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun GlassAlbumArt(
     isPlaying: Boolean,
-    size: androidx.compose.ui.unit.Dp
+    modifier: Modifier = Modifier
 ) {
     val infiniteTransition = rememberInfiniteTransition(label = "albumRotation")
-
     val rotation by infiniteTransition.animateFloat(
         initialValue = 0f,
         targetValue = 360f,
@@ -189,101 +271,117 @@ private fun RotatingAlbumArt(
         label = "rotation"
     )
 
-    Card(
-        modifier = Modifier
-            .size(size)
-            .rotate(if (isPlaying) rotation else 0f),
-        shape = CircleShape,
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+    Box(
+        modifier = modifier.aspectRatio(1f),
+        contentAlignment = Alignment.Center
     ) {
-        Box(
-            modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center
+        // Glow effect
+        Surface(
+            shape = CircleShape,
+            color = Color.White.copy(alpha = 0.1f),
+            modifier = Modifier
+                .fillMaxSize(0.95f)
+                .blur(40.dp)
+        ) {}
+
+        // Main card avec glass effect
+        Surface(
+            shape = CircleShape,
+            color = Color.White.copy(alpha = 0.15f),
+            modifier = Modifier
+                .fillMaxSize(0.9f)
+                .rotate(if (isPlaying) rotation else 0f)
         ) {
-            Icon(
-                Icons.Default.MusicNote,
-                contentDescription = null,
-                modifier = Modifier.size(140.dp),
-                tint = MaterialTheme.colorScheme.primary
-            )
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier.fillMaxSize()
+            ) {
+                Icon(
+                    Icons.Default.MusicNote,
+                    contentDescription = null,
+                    modifier = Modifier.size(140.dp),
+                    tint = Color.White.copy(alpha = 0.8f)
+                )
+            }
         }
+
+        // Center dot (vinyl style)
+        Surface(
+            shape = CircleShape,
+            color = Color.White.copy(alpha = 0.3f),
+            modifier = Modifier.size(60.dp)
+        ) {}
     }
 }
 
 @Composable
-private fun AnimatedTrackInfo(
+private fun ModernTrackInfo(
     title: String,
     artist: String
 ) {
     Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        AnimatedContent(
-            targetState = title,
-            transitionSpec = {
-                fadeIn(tween(300)) togetherWith fadeOut(tween(300))
-            },
-            label = "titleAnimation"
-        ) { currentTitle ->
-            Text(
-                text = currentTitle,
-                style = MaterialTheme.typography.headlineMedium,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(horizontal = 16.dp)
-            )
-        }
+        Text(
+            text = title,
+            style = MaterialTheme.typography.headlineMedium.copy(
+                fontWeight = FontWeight.Bold,
+                fontSize = 28.sp,
+                color = Color.White
+            ),
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            textAlign = TextAlign.Center
+        )
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        AnimatedContent(
-            targetState = artist,
-            transitionSpec = {
-                fadeIn(tween(300)) togetherWith fadeOut(tween(300))
-            },
-            label = "artistAnimation"
-        ) { currentArtist ->
-            Text(
-                text = currentArtist,
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
-    }
-}
-
-@Composable
-private fun AnimatedFavoriteButton(
-    isFavorite: Boolean,
-    onClick: () -> Unit
-) {
-    val scale by animateFloatAsState(
-        targetValue = if (isFavorite) 1.2f else 1f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessLow
-        ),
-        label = "favoriteScale"
-    )
-
-    IconButton(onClick = onClick) {
-        Icon(
-            if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-            contentDescription = if (isFavorite) "Remove from favorites" else "Add to favorites",
-            tint = if (isFavorite) Color.Red else MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.scale(scale)
+        Text(
+            text = artist,
+            style = MaterialTheme.typography.titleMedium.copy(
+                fontWeight = FontWeight.Medium,
+                color = Color.White.copy(alpha = 0.7f)
+            ),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            textAlign = TextAlign.Center
         )
     }
 }
 
 @Composable
-private fun AnimatedPlaybackControls(
+private fun TimeLabels(
+    currentTime: String,
+    totalTime: String
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 32.dp),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(
+            text = currentTime,
+            style = MaterialTheme.typography.bodyMedium.copy(
+                color = Color.White.copy(alpha = 0.7f),
+                fontWeight = FontWeight.Medium
+            )
+        )
+        Text(
+            text = totalTime,
+            style = MaterialTheme.typography.bodyMedium.copy(
+                color = Color.White.copy(alpha = 0.7f),
+                fontWeight = FontWeight.Medium
+            )
+        )
+    }
+}
+
+@Composable
+private fun ModernControls(
     isPlaying: Boolean,
     isShuffleEnabled: Boolean,
     repeatMode: Int,
@@ -294,128 +392,137 @@ private fun AnimatedPlaybackControls(
     onRepeatClick: () -> Unit
 ) {
     Row(
-        horizontalArrangement = Arrangement.SpaceEvenly,
-        verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp)
+            .padding(horizontal = 24.dp),
+        horizontalArrangement = Arrangement.SpaceEvenly,
+        verticalAlignment = Alignment.CenterVertically
     ) {
         // Shuffle
-        AnimatedIconButton(
-            onClick = onShuffleClick,
+        ModernIconButton(
             icon = Icons.Default.Shuffle,
             isActive = isShuffleEnabled,
+            onClick = onShuffleClick,
             size = 48.dp
         )
 
-        // Previous
-        AnimatedIconButton(
-            onClick = onPreviousClick,
+        // ✅ Previous - PLUS GRAND
+        ModernIconButton(
             icon = Icons.Default.SkipPrevious,
-            size = 56.dp
+            isActive = false,
+            onClick = onPreviousClick,
+            size = 64.dp  // ✅ Agrandi
         )
 
-        // Play/Pause (grand bouton pulsant)
-        PulsingPlayButton(
+        // ✅ Play/Pause - TRÈS GRAND
+        ModernPlayPauseButton(
             isPlaying = isPlaying,
             onClick = onPlayPauseClick
         )
 
-        // Next
-        AnimatedIconButton(
-            onClick = onNextClick,
+        // ✅ Next - PLUS GRAND
+        ModernIconButton(
             icon = Icons.Default.SkipNext,
-            size = 56.dp
+            isActive = false,
+            onClick = onNextClick,
+            size = 64.dp  // ✅ Agrandi
         )
 
         // Repeat
-        AnimatedIconButton(
-            onClick = onRepeatClick,
+        ModernIconButton(
             icon = when (repeatMode) {
                 Player.REPEAT_MODE_ONE -> Icons.Default.RepeatOne
                 else -> Icons.Default.Repeat
             },
             isActive = repeatMode != Player.REPEAT_MODE_OFF,
+            onClick = onRepeatClick,
             size = 48.dp
         )
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun AnimatedIconButton(
-    onClick: () -> Unit,
+private fun ModernIconButton(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
-    isActive: Boolean = false,
-    size: androidx.compose.ui.unit.Dp = 48.dp
+    isActive: Boolean,
+    onClick: () -> Unit,
+    size: androidx.compose.ui.unit.Dp
 ) {
     val scale by animateFloatAsState(
         targetValue = if (isActive) 1.1f else 1f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessMedium
-        ),
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
         label = "iconScale"
     )
 
-    IconButton(
+    Surface(
         onClick = onClick,
+        shape = CircleShape,
+        color = if (isActive) Color.White.copy(alpha = 0.25f) else Color.Transparent,
         modifier = Modifier
             .size(size)
             .scale(scale)
     ) {
-        Icon(
-            icon,
-            contentDescription = null,
-            modifier = Modifier.size(size * 0.6f),
-            tint = if (isActive)
-                MaterialTheme.colorScheme.primary
-            else
-                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
-        )
+        Box(contentAlignment = Alignment.Center) {
+            Icon(
+                icon,
+                contentDescription = null,
+                tint = if (isActive) Color.White else Color.White.copy(alpha = 0.9f),
+                modifier = Modifier.size(size * 0.6f)
+            )
+        }
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun PulsingPlayButton(
+private fun ModernPlayPauseButton(
     isPlaying: Boolean,
     onClick: () -> Unit
 ) {
-    val infiniteTransition = rememberInfiniteTransition(label = "pulse")
+    var isPressed by remember { mutableStateOf(false) }
 
-    val pulseScale by infiniteTransition.animateFloat(
-        initialValue = 1f,
-        targetValue = 1.05f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1000, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.9f else 1f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMedium
         ),
-        label = "pulseScale"
+        label = "playPauseScale"
     )
 
-    val scale = if (isPlaying) pulseScale else 1f
+    // ✅ Animation de pulsation pendant la lecture
+    val pulse by rememberInfiniteTransition(label = "pulse")
+        .animateFloat(
+            initialValue = 1f,
+            targetValue = 1.05f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(1000, easing = FastOutSlowInEasing),
+                repeatMode = RepeatMode.Reverse
+            ),
+            label = "pulseAnimation"
+        )
 
-    FilledTonalButton(
-        onClick = onClick,
+    Surface(
+        onClick = {
+            isPressed = true
+            onClick()
+            isPressed = false
+        },
+        shape = CircleShape,
+        color = Color.White,
         modifier = Modifier
             .size(80.dp)
-            .scale(scale),
-        contentPadding = PaddingValues(0.dp),
-        colors = ButtonDefaults.filledTonalButtonColors(
-            containerColor = MaterialTheme.colorScheme.primary,
-            contentColor = MaterialTheme.colorScheme.onPrimary
-        )
+            .scale(scale)
+            .scale(if (isPlaying) pulse else 1f),  // ✅ Pulse quand ça joue
+        shadowElevation = 8.dp
     ) {
-        AnimatedContent(
-            targetState = isPlaying,
-            transitionSpec = {
-                fadeIn(tween(200)) togetherWith fadeOut(tween(200))
-            },
-            label = "playPauseIcon"
-        ) { playing ->
+        Box(contentAlignment = Alignment.Center) {
             Icon(
-                if (playing) Icons.Default.Pause else Icons.Default.PlayArrow,
-                contentDescription = if (playing) "Pause" else "Play",
-                modifier = Modifier.size(44.dp)
+                if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                contentDescription = if (isPlaying) "Pause" else "Play",
+                tint = gradientColors[0],
+                modifier = Modifier.size(40.dp)
             )
         }
     }
