@@ -1,25 +1,48 @@
 package com.example.sonicflow.presentation.screen.artist
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.*
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.example.sonicflow.domain.model.Artist
 import kotlinx.coroutines.delay
+
+// 🎨 PALETTE MODERNE - Cohérente avec HomeScreen
+private val GRADIENT_COLORS = listOf(
+    Color(0xFF6366F1),  // Indigo
+    Color(0xFF8B5CF6),  // Violet
+    Color(0xFFEC4899),  // Rose
+    Color(0xFFF97316)   // Orange
+)
+
+private val ARTIST_CARD_GRADIENT = listOf(
+    Color(0xFF2D1B4E),  // Violet foncé
+    Color(0xFF1F1535)   // Violet très foncé
+)
 
 @Composable
 fun ArtistContent(
@@ -57,13 +80,13 @@ fun ArtistContent(
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize()) {
-            // SearchBar
+            // SearchBar moderne
             AnimatedVisibility(
                 visible = isSearchActive,
                 enter = fadeIn() + slideInVertically(),
                 exit = fadeOut() + slideOutVertically()
             ) {
-                SearchBar(
+                ModernSearchBar(
                     query = searchQuery,
                     onQueryChange = { searchQuery = it },
                     onClose = {
@@ -82,101 +105,57 @@ fun ArtistContent(
             ) {
                 when {
                     isLoading -> {
-                        CircularProgressIndicator(
-                            modifier = Modifier.align(Alignment.Center)
-                        )
+                        ModernLoadingState()
                     }
                     error != null -> {
-                        Column(
-                            modifier = Modifier.align(Alignment.Center),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Icon(
-                                Icons.Default.Error,
-                                contentDescription = null,
-                                modifier = Modifier.size(64.dp),
-                                tint = MaterialTheme.colorScheme.error
-                            )
-                            Spacer(modifier = Modifier.height(16.dp))
-                            Text(
-                                text = error ?: "Unknown error",
-                                color = MaterialTheme.colorScheme.error
-                            )
-                            Spacer(modifier = Modifier.height(16.dp))
-                            Button(onClick = { viewModel.loadArtists() }) {
-                                Text("Retry")
-                            }
-                        }
+                        ModernErrorState(
+                            error = error ?: "Erreur inconnue",
+                            onRetry = { viewModel.loadArtists() }
+                        )
                     }
                     filteredArtists.isEmpty() && searchQuery.isNotEmpty() -> {
-                        Column(
-                            modifier = Modifier.align(Alignment.Center),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Icon(
-                                Icons.Default.SearchOff,
-                                contentDescription = null,
-                                modifier = Modifier.size(64.dp),
-                                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
-                            )
-                            Spacer(modifier = Modifier.height(16.dp))
-                            Text("Aucun résultat pour \"$searchQuery\"")
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                "Essayez avec un autre terme",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                            )
-                        }
+                        ModernEmptySearchState(searchQuery = searchQuery)
                     }
                     artists.isEmpty() -> {
-                        Column(
-                            modifier = Modifier.align(Alignment.Center),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Icon(
-                                Icons.Default.Person,
-                                contentDescription = null,
-                                modifier = Modifier.size(64.dp),
-                                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
-                            )
-                            Spacer(modifier = Modifier.height(16.dp))
-                            Text("Aucun artiste trouvé")
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                "Ajoutez de la musique à votre bibliothèque",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                            )
-                        }
+                        ModernEmptyArtistsState()
                     }
                     else -> {
                         LazyColumn(
                             modifier = Modifier.fillMaxSize(),
-                            contentPadding = PaddingValues(vertical = 8.dp),
-                            verticalArrangement = Arrangement.spacedBy(1.dp)
+                            contentPadding = PaddingValues(
+                                horizontal = 16.dp,
+                                vertical = 12.dp
+                            ),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
                             if (searchQuery.isNotEmpty()) {
                                 item {
                                     Surface(
                                         modifier = Modifier.fillMaxWidth(),
-                                        color = MaterialTheme.colorScheme.surfaceVariant
+                                        shape = RoundedCornerShape(12.dp),
+                                        color = Color.White.copy(alpha = 0.1f)
                                     ) {
                                         Text(
                                             text = "${filteredArtists.size} artiste${if (filteredArtists.size > 1) "s" else ""}",
                                             modifier = Modifier.padding(16.dp),
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            style = MaterialTheme.typography.bodyLarge.copy(
+                                                fontWeight = FontWeight.SemiBold
+                                            ),
+                                            color = Color.White.copy(alpha = 0.8f)
                                         )
                                     }
                                 }
                             }
 
                             items(filteredArtists, key = { it.name }) { artist ->
-                                ArtistItem(
+                                ModernArtistItem(
                                     artist = artist,
                                     onClick = { onArtistClick(artist) }
                                 )
+                            }
+
+                            item {
+                                Spacer(modifier = Modifier.height(80.dp))
                             }
                         }
                     }
@@ -188,41 +167,269 @@ fun ArtistContent(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun SearchBar(
+private fun ModernSearchBar(
     query: String,
     onQueryChange: (String) -> Unit,
     onClose: () -> Unit,
-    focusRequester: FocusRequester,
-    modifier: Modifier = Modifier
+    focusRequester: FocusRequester
 ) {
     Surface(
-        modifier = modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.surface,
-        tonalElevation = 3.dp
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        shape = RoundedCornerShape(16.dp),
+        color = Color.White.copy(alpha = 0.1f),
+        shadowElevation = 0.dp
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(8.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .padding(horizontal = 16.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            IconButton(onClick = onClose) {
-                Icon(Icons.Default.ArrowBack, contentDescription = "Close search")
-            }
+            Icon(
+                Icons.Default.Search,
+                contentDescription = null,
+                tint = Color.White.copy(alpha = 0.7f),
+                modifier = Modifier.size(24.dp)
+            )
+
             TextField(
                 value = query,
                 onValueChange = onQueryChange,
-                placeholder = { Text("Rechercher des artistes...") },
-                singleLine = true,
-                colors = TextFieldDefaults.colors(
-                    focusedContainerColor = MaterialTheme.colorScheme.surface,
-                    unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-                    focusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
-                    unfocusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent
-                ),
+                placeholder = {
+                    Text(
+                        "Rechercher des artistes...",
+                        color = Color.White.copy(alpha = 0.5f)
+                    )
+                },
                 modifier = Modifier
                     .weight(1f)
-                    .focusRequester(focusRequester)
+                    .focusRequester(focusRequester),
+                colors = TextFieldDefaults.colors(
+                    focusedTextColor = Color.White,
+                    unfocusedTextColor = Color.White,
+                    focusedContainerColor = Color.Transparent,
+                    unfocusedContainerColor = Color.Transparent,
+                    disabledContainerColor = Color.Transparent,
+                    cursorColor = Color.White,
+                    focusedIndicatorColor = Color.Transparent,
+                    unfocusedIndicatorColor = Color.Transparent,
+                ),
+                singleLine = true
+            )
+
+            if (query.isNotEmpty()) {
+                IconButton(
+                    onClick = { onQueryChange("") }
+                ) {
+                    Icon(
+                        Icons.Default.Clear,
+                        contentDescription = "Effacer",
+                        tint = Color.White.copy(alpha = 0.7f),
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
+
+            IconButton(
+                onClick = onClose
+            ) {
+                Icon(
+                    Icons.Default.Close,
+                    contentDescription = "Fermer",
+                    tint = Color.White.copy(alpha = 0.7f),
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ModernLoadingState() {
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            CircularProgressIndicator(
+                color = GRADIENT_COLORS[1],
+                modifier = Modifier.size(48.dp)
+            )
+            Text(
+                "Chargement des artistes...",
+                style = MaterialTheme.typography.bodyLarge,
+                color = Color.White.copy(alpha = 0.7f)
+            )
+        }
+    }
+}
+
+@Composable
+private fun ModernErrorState(
+    error: String,
+    onRetry: () -> Unit
+) {
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(20.dp),
+            modifier = Modifier.padding(32.dp)
+        ) {
+            Surface(
+                shape = CircleShape,
+                color = GRADIENT_COLORS[2].copy(alpha = 0.15f),
+                modifier = Modifier.size(72.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        Icons.Default.ErrorOutline,
+                        contentDescription = null,
+                        tint = GRADIENT_COLORS[2],
+                        modifier = Modifier.size(36.dp)
+                    )
+                }
+            }
+
+            Text(
+                "Erreur",
+                style = MaterialTheme.typography.titleLarge.copy(
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+            )
+
+            Text(
+                error,
+                style = MaterialTheme.typography.bodyMedium,
+                color = Color.White.copy(alpha = 0.7f),
+                textAlign = TextAlign.Center
+            )
+
+            Button(
+                onClick = onRetry,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = GRADIENT_COLORS[1]
+                ),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.padding(top = 8.dp)
+            ) {
+                Icon(
+                    Icons.Default.Refresh,
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Réessayer")
+            }
+        }
+    }
+}
+
+@Composable
+private fun ModernEmptySearchState(searchQuery: String) {
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            modifier = Modifier.padding(32.dp)
+        ) {
+            Surface(
+                shape = CircleShape,
+                color = GRADIENT_COLORS[0].copy(alpha = 0.15f),
+                modifier = Modifier.size(72.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        Icons.Default.SearchOff,
+                        contentDescription = null,
+                        tint = GRADIENT_COLORS[0],
+                        modifier = Modifier.size(36.dp)
+                    )
+                }
+            }
+
+            Text(
+                "Aucun résultat",
+                style = MaterialTheme.typography.titleLarge.copy(
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+            )
+
+            Text(
+                "Aucun artiste trouvé pour \"$searchQuery\"",
+                style = MaterialTheme.typography.bodyMedium,
+                color = Color.White.copy(alpha = 0.7f),
+                textAlign = TextAlign.Center
+            )
+        }
+    }
+}
+
+@Composable
+private fun ModernEmptyArtistsState() {
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(20.dp),
+            modifier = Modifier.padding(32.dp)
+        ) {
+            val infiniteTransition = rememberInfiniteTransition(label = "empty_artists")
+            val scale by infiniteTransition.animateFloat(
+                initialValue = 0.95f,
+                targetValue = 1.05f,
+                animationSpec = infiniteRepeatable(
+                    animation = tween(2000, easing = FastOutSlowInEasing),
+                    repeatMode = RepeatMode.Reverse
+                ),
+                label = "scale_animation"
+            )
+
+            Surface(
+                shape = CircleShape,
+                color = GRADIENT_COLORS[3].copy(alpha = 0.15f),
+                modifier = Modifier
+                    .size(96.dp)
+                    .scale(scale)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        Icons.Default.Person,
+                        contentDescription = null,
+                        tint = GRADIENT_COLORS[3],
+                        modifier = Modifier.size(48.dp)
+                    )
+                }
+            }
+
+            Text(
+                "Aucun artiste",
+                style = MaterialTheme.typography.headlineSmall.copy(
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+            )
+
+            Text(
+                "Ajoutez de la musique à votre bibliothèque\npour voir vos artistes.",
+                style = MaterialTheme.typography.bodyLarge,
+                color = Color.White.copy(alpha = 0.7f),
+                textAlign = TextAlign.Center
             )
         }
     }
@@ -230,73 +437,77 @@ private fun SearchBar(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ArtistItem(
+private fun ModernArtistItem(
     artist: Artist,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    onClick: () -> Unit
 ) {
-    Card(
+    Surface(
         onClick = onClick,
-        modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
-        )
+        shape = RoundedCornerShape(16.dp),
+        color = Color.Transparent,
+        modifier = Modifier.fillMaxWidth()
     ) {
-        Row(
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(16.dp)
+                .background(
+                    brush = Brush.horizontalGradient(
+                        colors = ARTIST_CARD_GRADIENT
+                    ),
+                    shape = RoundedCornerShape(16.dp)
+                )
+                .padding(16.dp)
         ) {
-            // Artist Icon
-            Box(
-                modifier = Modifier.size(56.dp),
-                contentAlignment = Alignment.Center
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
+                // Icône artiste
                 Surface(
-                    color = MaterialTheme.colorScheme.primaryContainer,
-                    shape = MaterialTheme.shapes.medium,
-                    modifier = Modifier.fillMaxSize()
+                    shape = CircleShape,
+                    color = GRADIENT_COLORS[1].copy(alpha = 0.2f),
+                    modifier = Modifier.size(60.dp)
                 ) {
-                    Box(
-                        contentAlignment = Alignment.Center,
-                        modifier = Modifier.fillMaxSize()
-                    ) {
+                    Box(contentAlignment = Alignment.Center) {
                         Icon(
                             Icons.Default.Person,
                             contentDescription = null,
-                            modifier = Modifier.size(32.dp),
-                            tint = MaterialTheme.colorScheme.onPrimaryContainer
+                            tint = GRADIENT_COLORS[1],
+                            modifier = Modifier.size(32.dp)
                         )
                     }
                 }
-            }
 
-            // Artist Info
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                Text(
-                    text = artist.name,
-                    style = MaterialTheme.typography.titleMedium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    text = "${artist.trackCount} morceau${if (artist.trackCount > 1) "x" else ""}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                // Info artiste
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Text(
+                        text = artist.name,
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        ),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = "${artist.trackCount} morceau${if (artist.trackCount > 1) "x" else ""}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color.White.copy(alpha = 0.6f)
+                    )
+                }
+
+                // Flèche
+                Icon(
+                    Icons.Default.ChevronRight,
+                    contentDescription = "Voir l'artiste",
+                    tint = Color.White.copy(alpha = 0.5f),
+                    modifier = Modifier.size(24.dp)
                 )
             }
-
-            // Arrow Icon
-            Icon(
-                Icons.Default.ChevronRight,
-                contentDescription = "View artist",
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
-            )
         }
     }
 }
