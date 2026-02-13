@@ -3,8 +3,6 @@ package com.example.sonicflow.presentation.screen.library
 import android.content.ContentUris
 import android.content.Context
 import android.content.Intent
-import android.media.MediaScannerConnection
-import android.net.Uri
 import android.provider.MediaStore
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -20,7 +18,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import java.io.File
 import javax.inject.Inject
 
 @HiltViewModel
@@ -235,19 +232,19 @@ class LibraryViewModel @Inject constructor(
         }
     }
 
-    fun toggleFavorite(trackId: Long) {
+    fun toggleFavorite(track: Track) {
         viewModelScope.launch {
             try {
-                val isFavorite = _favoriteTracks.value.contains(trackId)
+                val isFavorite = _favoriteTracks.value.contains(track.id)
 
                 if (isFavorite) {
-                    favoriteRepository.removeFromFavorites(trackId)
+                    favoriteRepository.removeFromFavorites(track.id)
                     showSuccessMessage("Retiré des favoris")
-                    android.util.Log.d("LibraryViewModel", "Removed from favorites: $trackId")
+                    android.util.Log.d("LibraryViewModel", "Removed from favorites: ${track.id}")
                 } else {
-                    favoriteRepository.addToFavorites(trackId)
+                    favoriteRepository.addToFavorites(track.id)
                     showSuccessMessage("Ajouté aux favoris ❤️")
-                    android.util.Log.d("LibraryViewModel", "Added to favorites: $trackId")
+                    android.util.Log.d("LibraryViewModel", "Added to favorites: ${track.id}")
                 }
             } catch (e: Exception) {
                 _error.value = "Erreur favoris: ${e.message}"
