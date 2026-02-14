@@ -66,7 +66,8 @@ class LibraryViewModel @Inject constructor(
     val trackDetailsText: StateFlow<String> = _trackDetailsText.asStateFlow()
 
     init {
-        loadTracks()
+        // 🔥 NE PAS CHARGER LES TRACKS ICI - Attendre l'appel explicite
+        android.util.Log.d("LibraryViewModel", "ViewModel initialized - NOT loading tracks yet")
         loadPlaylists()
         observeFavorites()
         observeCurrentTrack()
@@ -81,22 +82,31 @@ class LibraryViewModel @Inject constructor(
             _isLoading.value = true
             _error.value = null
 
+            android.util.Log.d("LibraryViewModel", "🔄 Starting to load tracks...")
+
             try {
+                // 🔥 ÉTAPE 1 : Scanner MediaStore et remplir la base de données
+                android.util.Log.d("LibraryViewModel", "📱 Scanning MediaStore...")
+                trackRepository.refreshTracks()
+                android.util.Log.d("LibraryViewModel", "✅ MediaStore scan complete")
+
+                // 🔥 ÉTAPE 2 : Charger depuis Room Database
                 trackRepository.getAllTracks().collect { trackList ->
                     _allTracks.value = trackList
                     _tracks.value = trackList
                     _isLoading.value = false
-                    android.util.Log.d("LibraryViewModel", "Loaded ${trackList.size} tracks")
+                    android.util.Log.d("LibraryViewModel", "✅ Loaded ${trackList.size} tracks")
                 }
             } catch (e: Exception) {
                 _error.value = "Failed to load tracks: ${e.message}"
                 _isLoading.value = false
-                android.util.Log.e("LibraryViewModel", "Error loading tracks", e)
+                android.util.Log.e("LibraryViewModel", "❌ Error loading tracks", e)
             }
         }
     }
 
     fun refreshTracks() {
+        android.util.Log.d("LibraryViewModel", "🔄 Refreshing tracks...")
         loadTracks()
     }
 
@@ -204,13 +214,11 @@ class LibraryViewModel @Inject constructor(
                 playlistRepository.addTrackToPlaylist(playlistId, trackId)
 
                 val playlist = _playlists.value.find { it.id == playlistId }
-                val playlistName = playlist?.name ?: "playlist"
-
-                showSuccessMessage("Ajouté à '$playlistName'")
-                android.util.Log.d("LibraryViewModel", "Added track $trackId to playlist $playlistId")
+                showSuccessMessage("Ajouté à ${playlist?.name ?: "la playlist"}")
+                android.util.Log.d("LibraryViewModel", "Added track to playlist: $playlistId")
             } catch (e: Exception) {
-                _error.value = "Failed to add to playlist: ${e.message}"
-                android.util.Log.e("LibraryViewModel", "Error adding to playlist", e)
+                _error.value = "Failed to add track to playlist: ${e.message}"
+                android.util.Log.e("LibraryViewModel", "Error adding track to playlist", e)
             }
         }
     }
@@ -224,7 +232,7 @@ class LibraryViewModel @Inject constructor(
             try {
                 favoriteRepository.getFavoriteTracks().collect { favoriteTracks ->
                     _favoriteTracks.value = favoriteTracks.map { it.id }.toSet()
-                    android.util.Log.d("LibraryViewModel", "Favorites updated: ${favoriteTracks.size}")
+                    android.util.Log.d("LibraryViewModel", "Loaded ${favoriteTracks.size} favorites")
                 }
             } catch (e: Exception) {
                 android.util.Log.e("LibraryViewModel", "Error observing favorites", e)

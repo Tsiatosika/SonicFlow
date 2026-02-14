@@ -30,13 +30,11 @@ import com.example.sonicflow.domain.model.Track
 import com.example.sonicflow.presentation.components.ModernTrackItem
 import kotlin.math.absoluteValue
 
-// 🌈 COULEURS WAVEFORM - MÊMES QUE LE PLAYER
 private val WAVEFORM_CYAN = Color(0xFF00D9FF)
 private val WAVEFORM_MAGENTA = Color(0xFF9D00FF)
 private val WAVEFORM_PINK = Color(0xFFFF00D6)
 private val WAVEFORM_BLUE = Color(0xFF00A3FF)
 
-// Gradients modernes pour l'header
 private val playlistGradients = listOf(
     listOf(WAVEFORM_CYAN, WAVEFORM_BLUE),
     listOf(WAVEFORM_MAGENTA, WAVEFORM_PINK),
@@ -288,7 +286,6 @@ fun PlaylistDetailScreen(
                             )
                         }
 
-                        // ✅ MODERN TRACK ITEMS avec style waveform
                         items(tracks, key = { it.id }) { track ->
                             ModernTrackItem(
                                 track = track,
@@ -315,7 +312,6 @@ fun PlaylistDetailScreen(
             }
         }
 
-        // Dialog: Supprimer playlist (style modern)
         if (showDeleteDialog) {
             ModernAlertDialog(
                 title = "Supprimer la playlist ?",
@@ -333,7 +329,6 @@ fun PlaylistDetailScreen(
             )
         }
 
-        // Dialog: Renommer playlist (style modern)
         if (showRenameDialog) {
             ModernRenameDialog(
                 currentName = newName,
@@ -365,10 +360,6 @@ fun PlaylistDetailScreen(
         }
     }
 }
-
-// ============================================================================
-// COMPOSANTS UI MODERNES
-// ============================================================================
 
 @Composable
 private fun AnimatedBackground(gradient: List<Color>) {

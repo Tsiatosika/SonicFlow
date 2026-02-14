@@ -50,10 +50,8 @@ class AudioPlayerService : MediaSessionService() {
     private val serviceScope = CoroutineScope(Dispatchers.Main + Job())
     private var positionUpdateJob: Job? = null
 
-    // Liste des tracks pour retrouver le track actuel
     private var currentTrackList: List<Track> = emptyList()
 
-    // Les StateFlows pour exposer l'état
     private val _playbackState = MutableStateFlow(PlaybackState())
     val playbackState = _playbackState.asStateFlow()
 
@@ -231,7 +229,6 @@ class AudioPlayerService : MediaSessionService() {
         }
 
         override fun onPlaybackParametersChanged(playbackParameters: PlaybackParameters) {
-            // Gérer les changements de vitesse si nécessaire
         }
 
         override fun onPlayerError(error: PlaybackException) {

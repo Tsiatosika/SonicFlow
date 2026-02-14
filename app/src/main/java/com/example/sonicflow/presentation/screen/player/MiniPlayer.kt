@@ -29,11 +29,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 
-// Même palette que le PlayerScreen
 private val miniGradientColors = listOf(
-    Color(0xFFE94560),  // Rouge vibrant
-    Color(0xFFD946EF),  // Magenta
-    Color(0xFF8B5CF6)   // Violet profond
+    Color(0xFFE94560),
+    Color(0xFFD946EF),
+    Color(0xFF8B5CF6)
 )
 
 @Composable
@@ -67,7 +66,6 @@ fun MiniPlayer(
                 .fillMaxWidth()
                 .height(80.dp)
         ) {
-            // Background gradient (même style que PlayerScreen)
             AnimatedMiniGradient()
 
             // Overlay sombre pour contraste
@@ -139,13 +137,12 @@ fun MiniPlayer(
                 }
             }
 
-            // ✅ FIX: Progress bar avec la bonne syntaxe
             val progress = if (playbackState.duration > 0) {
                 (playbackState.currentPosition.toFloat() / playbackState.duration.toFloat()).coerceIn(0f, 1f)
             } else 0f
 
             LinearProgressIndicator(
-                progress = progress,  // ✅ FIX: Passer directement le Float
+                progress = progress,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(3.dp)

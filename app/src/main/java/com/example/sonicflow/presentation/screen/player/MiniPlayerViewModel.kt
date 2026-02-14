@@ -23,7 +23,6 @@ class MiniPlayerViewModel @Inject constructor(
     private val _playbackState = MutableStateFlow(PlaybackState())
     val playbackState: StateFlow<PlaybackState> = _playbackState.asStateFlow()
 
-    // ✅ SUPPRIMÉ isVisible - on se base uniquement sur currentTrack != null
 
     init {
         observeCurrentTrack()

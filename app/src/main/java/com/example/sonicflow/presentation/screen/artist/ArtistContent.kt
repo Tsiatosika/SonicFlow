@@ -31,17 +31,16 @@ import androidx.compose.ui.unit.sp
 import com.example.sonicflow.domain.model.Artist
 import kotlinx.coroutines.delay
 
-// 🎨 PALETTE MODERNE - Cohérente avec HomeScreen
 private val GRADIENT_COLORS = listOf(
-    Color(0xFF6366F1),  // Indigo
-    Color(0xFF8B5CF6),  // Violet
-    Color(0xFFEC4899),  // Rose
-    Color(0xFFF97316)   // Orange
+    Color(0xFF6366F1),
+    Color(0xFF8B5CF6),
+    Color(0xFFEC4899),
+    Color(0xFFF97316)
 )
 
 private val ARTIST_CARD_GRADIENT = listOf(
-    Color(0xFF2D1B4E),  // Violet foncé
-    Color(0xFF1F1535)   // Violet très foncé
+    Color(0xFF2D1B4E),
+    Color(0xFF1F1535)
 )
 
 @Composable

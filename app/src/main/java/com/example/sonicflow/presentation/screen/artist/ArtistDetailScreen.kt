@@ -27,17 +27,16 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.sonicflow.domain.model.Track
 import kotlin.math.sin
 
-// 🎨 PALETTE MODERNE
 private val GRADIENT_BACKGROUND = listOf(
-    Color(0xFF6366F1),  // Indigo
-    Color(0xFF8B5CF6),  // Violet
-    Color(0xFFEC4899),  // Rose
-    Color(0xFFF97316)   // Orange
+    Color(0xFF6366F1),
+    Color(0xFF8B5CF6),
+    Color(0xFFEC4899),
+    Color(0xFFF97316)
 )
 
 private val TRACK_CARD_GRADIENT = listOf(
-    Color(0xFF2D1B4E),  // Violet foncé
-    Color(0xFF1F1535)   // Violet très foncé
+    Color(0xFF2D1B4E),
+    Color(0xFF1F1535)
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -63,7 +62,6 @@ fun ArtistDetailScreen(
     )
 
     Box(modifier = Modifier.fillMaxSize()) {
-        // 🌈 FOND GRADIENT ANIMÉ
         Canvas(
             modifier = Modifier.fillMaxSize()
         ) {

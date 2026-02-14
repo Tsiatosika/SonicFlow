@@ -12,8 +12,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -40,12 +39,20 @@ import java.net.URLEncoder
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
+    // ✅ Variable pour tracker si on doit recharger après permission
+    private var shouldReloadAfterPermission = false
+
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { isGranted ->
         if (isGranted) {
-            Toast.makeText(this, "Permission accordée", Toast.LENGTH_SHORT).show()
+            android.util.Log.d("MainActivity", "✅ Permission accordée")
+            Toast.makeText(this, "Permission accordée - Chargement...", Toast.LENGTH_SHORT).show()
+            shouldReloadAfterPermission = true
+            // 🔥 FORCER LE RECHARGEMENT COMPLET
+            recreate()
         } else {
+            android.util.Log.e("MainActivity", "❌ Permission refusée")
             Toast.makeText(
                 this,
                 "Permission refusée - L'app ne peut pas accéder à vos fichiers audio",
@@ -56,53 +63,64 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        android.util.Log.d("MainActivity", "onCreate - Checking permissions")
         enableEdgeToEdge()
-        checkAndRequestPermissions()
+
+        val hasPermission = checkAndRequestPermissions()
+        android.util.Log.d("MainActivity", "Has permission: $hasPermission")
+
         setContent {
-            SonicFlowApp()
+            SonicFlowApp(hasPermission = hasPermission)
         }
     }
 
-    private fun checkAndRequestPermissions() {
+    private fun checkAndRequestPermissions(): Boolean {
         val permission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             Manifest.permission.READ_MEDIA_AUDIO
         } else {
             Manifest.permission.READ_EXTERNAL_STORAGE
         }
 
-        when {
+        return when {
             ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED -> {
-                android.util.Log.d("MainActivity", "Permission already granted")
+                android.util.Log.d("MainActivity", "✅ Permission already granted")
+                true
             }
             shouldShowRequestPermissionRationale(permission) -> {
+                android.util.Log.d("MainActivity", "⚠️ Showing rationale")
                 Toast.makeText(
                     this,
                     "Cette permission est nécessaire pour lire vos fichiers audio",
                     Toast.LENGTH_LONG
                 ).show()
                 requestPermissionLauncher.launch(permission)
+                false
             }
             else -> {
+                android.util.Log.d("MainActivity", "📋 Requesting permission")
                 requestPermissionLauncher.launch(permission)
+                false
             }
         }
     }
 }
 
 @Composable
-fun SonicFlowApp() {
+fun SonicFlowApp(hasPermission: Boolean) {
+    android.util.Log.d("SonicFlowApp", "Rendering with permission: $hasPermission")
+
     SonicFlowTheme {
         Surface(
             modifier = Modifier.fillMaxSize(),
             color = MaterialTheme.colorScheme.background
         ) {
-            AppNavigation()
+            AppNavigation(hasPermission = hasPermission)
         }
     }
 }
 
 @Composable
-fun AppNavigation() {
+fun AppNavigation(hasPermission: Boolean) {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route ?: ""
@@ -116,6 +134,17 @@ fun AppNavigation() {
             // HOME avec 5 onglets
             composable(Screen.Home.route) {
                 val libraryViewModel: LibraryViewModel = hiltViewModel()
+
+                // 🔥 FORCER LE CHARGEMENT DES TRACKS SI ON A LA PERMISSION
+                LaunchedEffect(hasPermission) {
+                    if (hasPermission) {
+                        android.util.Log.d("AppNavigation", "🔄 Loading tracks with permission")
+                        libraryViewModel.loadTracks()
+                    } else {
+                        android.util.Log.d("AppNavigation", "⏸️ Waiting for permission")
+                    }
+                }
+
                 HomeScreen(
                     onTrackClick = { track ->
                         libraryViewModel.playTrackFromList(track)
@@ -124,7 +153,6 @@ fun AppNavigation() {
                     onPlaylistDetailClick = { playlistId ->
                         navController.navigate("${Screen.PlaylistDetail.route}/$playlistId")
                     },
-
                     onArtistDetailClick = { artistName ->
                         val encoded = URLEncoder.encode(artistName, "UTF-8")
                         navController.navigate("${Screen.ArtistDetail.route}/$encoded")

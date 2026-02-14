@@ -23,10 +23,10 @@ import androidx.compose.ui.unit.sp
 import com.example.sonicflow.domain.model.Playlist
 
 private val playlistGradients = listOf(
-    listOf(Color(0xFFE94560), Color(0xFFD946EF)),  // Rouge-Magenta
-    listOf(Color(0xFF8B5CF6), Color(0xFF06B6D4)),  // Violet-Cyan
-    listOf(Color(0xFF10B981), Color(0xFFFBBF24)),  // Vert-Jaune
-    listOf(Color(0xFFD946EF), Color(0xFF8B5CF6)),  // Magenta-Violet
+    listOf(Color(0xFFE94560), Color(0xFFD946EF)),
+    listOf(Color(0xFF8B5CF6), Color(0xFF06B6D4)),
+    listOf(Color(0xFF10B981), Color(0xFFFBBF24)),
+    listOf(Color(0xFFD946EF), Color(0xFF8B5CF6)),
 )
 
 @OptIn(ExperimentalMaterial3Api::class)

@@ -21,7 +21,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.sonicflow.domain.model.Track
 
-// Couleurs du gradient moderne
 private val trackGradientColors = listOf(
     Color(0xFFE94560),
     Color(0xFFD946EF),

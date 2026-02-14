@@ -60,7 +60,6 @@ class AudioPlayerServiceConnection @Inject constructor(
         }
     }
 
-    // Méthodes déléguées au service
     fun playTrack(track: Track) {
         if (service != null) {
             service?.playTrack(track)

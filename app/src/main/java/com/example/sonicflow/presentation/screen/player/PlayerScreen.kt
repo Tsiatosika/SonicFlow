@@ -1,10 +1,10 @@
 package com.example.sonicflow.presentation.screen.player
 
+import android.net.Uri
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -12,7 +12,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
@@ -26,14 +25,14 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
+import com.example.sonicflow.presentation.components.AlbumArtwork
 import com.example.sonicflow.presentation.screen.waveform.WaveformViewModel
 import com.example.sonicflow.presentation.screen.waveform.WaveformVisualizer
 
-// Couleurs du gradient moderne
 private val gradientColors = listOf(
-    Color(0xFFE94560),  // Rouge vibrant
-    Color(0xFFD946EF),  // Magenta
-    Color(0xFF8B5CF6)   // Violet profond
+    Color(0xFFE94560),
+    Color(0xFFD946EF),
+    Color(0xFF8B5CF6)
 )
 
 @androidx.annotation.OptIn(UnstableApi::class)
@@ -77,7 +76,7 @@ fun PlayerScreen(
                 .fillMaxSize()
                 .statusBarsPadding()
         ) {
-            // Top Bar moderne (SANS "Now Playing")
+            // Top Bar moderne
             ModernTopBar(
                 onBackClick = onBackClick,
                 isFavorite = isFavorite,
@@ -88,9 +87,9 @@ fun PlayerScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Album Art rotatif avec effet glass
             GlassAlbumArt(
                 isPlaying = playbackState.isPlaying,
+                albumArtUri = currentTrack?.albumArtUri,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 40.dp)
@@ -98,34 +97,44 @@ fun PlayerScreen(
 
             Spacer(modifier = Modifier.height(40.dp))
 
-            // Track Info avec style moderne
+            // Track info
             ModernTrackInfo(
-                title = currentTrack?.title ?: "Loading...",
-                artist = currentTrack?.artist ?: "Unknown Artist"
+                title = currentTrack?.title ?: "No track",
+                artist = currentTrack?.artist ?: "Unknown"
             )
 
-            Spacer(modifier = Modifier.weight(1f))
+            Spacer(modifier = Modifier.height(32.dp))
 
-            // Waveform
-            WaveformVisualizer(
-                waveformData = waveformData,
-                currentPosition = playbackState.currentPosition,
-                duration = playbackState.duration,
-                onSeek = { position -> viewModel.seekTo(position) }
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Time labels
-            TimeLabels(
-                currentTime = viewModel.formatDuration(playbackState.currentPosition),
-                totalTime = viewModel.formatDuration(playbackState.duration)
-            )
+            if (waveformData != null) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(80.dp)
+                        .padding(horizontal = 24.dp)
+                ) {
+                    WaveformVisualizer(
+                        waveformData = waveformData,
+                        currentPosition = playbackState.currentPosition,
+                        duration = playbackState.duration,
+                        onSeek = { position -> viewModel.seekTo(position) },
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
+            }
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Contrôles modernes
-            ModernControls(
+            // Progress bar
+            ModernProgressBar(
+                currentPosition = playbackState.currentPosition,
+                duration = playbackState.duration,
+                onSeek = { viewModel.seekTo(it) }
+            )
+
+            Spacer(modifier = Modifier.height(32.dp))
+
+            // Control buttons
+            ModernControlButtons(
                 isPlaying = playbackState.isPlaying,
                 isShuffleEnabled = isShuffleEnabled,
                 repeatMode = repeatMode,
@@ -136,22 +145,7 @@ fun PlayerScreen(
                 onRepeatClick = { viewModel.toggleRepeatMode() }
             )
 
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // ✅ "NOW PLAYING" EN BAS
-            Text(
-                text = "NOW PLAYING",
-                style = MaterialTheme.typography.labelLarge.copy(
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 13.sp,
-                    letterSpacing = 2.sp,
-                    color = Color.White.copy(alpha = 0.6f)
-                ),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 24.dp),
-                textAlign = TextAlign.Center
-            )
+            Spacer(modifier = Modifier.height(32.dp))
         }
     }
 }
@@ -160,38 +154,39 @@ fun PlayerScreen(
 private fun AnimatedGradientBackground() {
     val infiniteTransition = rememberInfiniteTransition(label = "gradient")
 
-    val offset by infiniteTransition.animateFloat(
+    val offset1 by infiniteTransition.animateFloat(
         initialValue = 0f,
         targetValue = 1000f,
         animationSpec = infiniteRepeatable(
-            animation = tween(10000, easing = LinearEasing),
+            animation = tween(15000, easing = LinearEasing),
             repeatMode = RepeatMode.Reverse
         ),
-        label = "gradientOffset"
+        label = "offset1"
+    )
+
+    val offset2 by infiniteTransition.animateFloat(
+        initialValue = 1000f,
+        targetValue = 0f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(12000, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "offset2"
     )
 
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(
-                Brush.linearGradient(
+                brush = Brush.linearGradient(
                     colors = gradientColors,
-                    start = Offset(offset, offset),
-                    end = Offset(offset + 800f, offset + 800f)
+                    start = Offset(offset1, offset2),
+                    end = Offset(offset2, offset1)
                 )
             )
-            .blur(100.dp)
-    )
-
-    // Overlay sombre pour lisibilité
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.4f))
     )
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ModernTopBar(
     onBackClick: () -> Unit,
@@ -205,7 +200,7 @@ private fun ModernTopBar(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Back button avec effet glass
+        // Back button
         Surface(
             onClick = onBackClick,
             shape = CircleShape,
@@ -222,10 +217,9 @@ private fun ModernTopBar(
             }
         }
 
-        // ✅ SPACER pour centrer le bouton favori
         Spacer(modifier = Modifier.weight(1f))
 
-        // Favorite button avec animation
+        // Favorite button
         val scale by animateFloatAsState(
             targetValue = if (isFavorite) 1.2f else 1f,
             animationSpec = spring(
@@ -246,8 +240,8 @@ private fun ModernTopBar(
             Box(contentAlignment = Alignment.Center) {
                 Icon(
                     if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                    contentDescription = if (isFavorite) "Remove from favorites" else "Add to favorites",
-                    tint = if (isFavorite) Color(0xFFE94560) else Color.White,
+                    contentDescription = "Favorite",
+                    tint = if (isFavorite) Color(0xFFFF6B9D) else Color.White,
                     modifier = Modifier.size(24.dp)
                 )
             }
@@ -258,9 +252,10 @@ private fun ModernTopBar(
 @Composable
 private fun GlassAlbumArt(
     isPlaying: Boolean,
+    albumArtUri: Uri?,
     modifier: Modifier = Modifier
 ) {
-    val infiniteTransition = rememberInfiniteTransition(label = "albumRotation")
+    val infiniteTransition = rememberInfiniteTransition(label = "vinyl")
     val rotation by infiniteTransition.animateFloat(
         initialValue = 0f,
         targetValue = 360f,
@@ -278,34 +273,37 @@ private fun GlassAlbumArt(
         // Glow effect
         Surface(
             shape = CircleShape,
-            color = Color.White.copy(alpha = 0.1f),
+            color = Color.White.copy(alpha = 0.05f),
             modifier = Modifier
-                .fillMaxSize(0.95f)
+                .fillMaxSize(1.2f)
                 .blur(40.dp)
         ) {}
 
-        // Main card avec glass effect
+        // Glass circle background
         Surface(
             shape = CircleShape,
             color = Color.White.copy(alpha = 0.15f),
+            modifier = Modifier.fillMaxSize()
+        ) {}
+
+        Box(
             modifier = Modifier
                 .fillMaxSize(0.9f)
                 .rotate(if (isPlaying) rotation else 0f)
         ) {
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier.fillMaxSize()
-            ) {
-                Icon(
-                    Icons.Default.MusicNote,
-                    contentDescription = null,
-                    modifier = Modifier.size(140.dp),
-                    tint = Color.White.copy(alpha = 0.8f)
+            AlbumArtwork(
+                albumArtUri = albumArtUri,
+                modifier = Modifier.fillMaxSize(),
+                size = 280.dp,
+                cornerRadius = 140.dp,  // Circulaire
+                iconSize = 140.dp,
+                gradientColors = listOf(
+                    Color.White.copy(alpha = 0.3f),
+                    Color.White.copy(alpha = 0.15f)
                 )
-            }
+            )
         }
 
-        // Center dot (vinyl style)
         Surface(
             shape = CircleShape,
             color = Color.White.copy(alpha = 0.3f),
@@ -342,8 +340,8 @@ private fun ModernTrackInfo(
         Text(
             text = artist,
             style = MaterialTheme.typography.titleMedium.copy(
-                fontWeight = FontWeight.Medium,
-                color = Color.White.copy(alpha = 0.7f)
+                fontSize = 18.sp,
+                color = Color.White.copy(alpha = 0.8f)
             ),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
@@ -353,35 +351,64 @@ private fun ModernTrackInfo(
 }
 
 @Composable
-private fun TimeLabels(
-    currentTime: String,
-    totalTime: String
+private fun ModernProgressBar(
+    currentPosition: Long,
+    duration: Long,
+    onSeek: (Long) -> Unit
 ) {
-    Row(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 32.dp),
-        horizontalArrangement = Arrangement.SpaceBetween
+            .padding(horizontal = 24.dp)
     ) {
-        Text(
-            text = currentTime,
-            style = MaterialTheme.typography.bodyMedium.copy(
-                color = Color.White.copy(alpha = 0.7f),
-                fontWeight = FontWeight.Medium
-            )
+        var sliderPosition by remember { mutableStateOf(currentPosition.toFloat()) }
+        var isUserSeeking by remember { mutableStateOf(false) }
+
+        LaunchedEffect(currentPosition) {
+            if (!isUserSeeking) {
+                sliderPosition = currentPosition.toFloat()
+            }
+        }
+
+        Slider(
+            value = sliderPosition,
+            onValueChange = {
+                sliderPosition = it
+                isUserSeeking = true
+            },
+            onValueChangeFinished = {
+                onSeek(sliderPosition.toLong())
+                isUserSeeking = false
+            },
+            valueRange = 0f..duration.toFloat().coerceAtLeast(1f),
+            colors = SliderDefaults.colors(
+                thumbColor = Color.White,
+                activeTrackColor = Color.White,
+                inactiveTrackColor = Color.White.copy(alpha = 0.3f)
+            ),
+            modifier = Modifier.fillMaxWidth()
         )
-        Text(
-            text = totalTime,
-            style = MaterialTheme.typography.bodyMedium.copy(
-                color = Color.White.copy(alpha = 0.7f),
-                fontWeight = FontWeight.Medium
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(
+                text = formatTime(sliderPosition.toLong()),
+                style = MaterialTheme.typography.bodySmall,
+                color = Color.White.copy(alpha = 0.7f)
             )
-        )
+            Text(
+                text = formatTime(duration),
+                style = MaterialTheme.typography.bodySmall,
+                color = Color.White.copy(alpha = 0.7f)
+            )
+        }
     }
 }
 
 @Composable
-private fun ModernControls(
+private fun ModernControlButtons(
     isPlaying: Boolean,
     isShuffleEnabled: Boolean,
     repeatMode: Int,
@@ -399,131 +426,101 @@ private fun ModernControls(
         verticalAlignment = Alignment.CenterVertically
     ) {
         // Shuffle
-        ModernIconButton(
-            icon = Icons.Default.Shuffle,
-            isActive = isShuffleEnabled,
+        IconButton(
             onClick = onShuffleClick,
-            size = 48.dp
-        )
+            modifier = Modifier.size(48.dp)
+        ) {
+            Icon(
+                Icons.Default.Shuffle,
+                contentDescription = "Shuffle",
+                tint = if (isShuffleEnabled) Color.White else Color.White.copy(alpha = 0.5f),
+                modifier = Modifier.size(24.dp)
+            )
+        }
 
-        // ✅ Previous - PLUS GRAND
-        ModernIconButton(
-            icon = Icons.Default.SkipPrevious,
-            isActive = false,
+        // Previous
+        Surface(
             onClick = onPreviousClick,
-            size = 64.dp  // ✅ Agrandi
+            shape = CircleShape,
+            color = Color.White.copy(alpha = 0.15f),
+            modifier = Modifier.size(64.dp)
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    Icons.Default.SkipPrevious,
+                    contentDescription = "Previous",
+                    tint = Color.White,
+                    modifier = Modifier.size(32.dp)
+                )
+            }
+        }
+
+        // Play/Pause
+        val scale by animateFloatAsState(
+            targetValue = if (isPlaying) 1.1f else 1f,
+            animationSpec = spring(
+                dampingRatio = Spring.DampingRatioMediumBouncy,
+                stiffness = Spring.StiffnessLow
+            ),
+            label = "playPauseScale"
         )
 
-        // ✅ Play/Pause - TRÈS GRAND
-        ModernPlayPauseButton(
-            isPlaying = isPlaying,
-            onClick = onPlayPauseClick
-        )
+        Surface(
+            onClick = onPlayPauseClick,
+            shape = CircleShape,
+            color = Color.White,
+            modifier = Modifier
+                .size(80.dp)
+                .scale(scale)
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                    contentDescription = if (isPlaying) "Pause" else "Play",
+                    tint = gradientColors[0],
+                    modifier = Modifier.size(40.dp)
+                )
+            }
+        }
 
-        // ✅ Next - PLUS GRAND
-        ModernIconButton(
-            icon = Icons.Default.SkipNext,
-            isActive = false,
+        // Next
+        Surface(
             onClick = onNextClick,
-            size = 64.dp  // ✅ Agrandi
-        )
+            shape = CircleShape,
+            color = Color.White.copy(alpha = 0.15f),
+            modifier = Modifier.size(64.dp)
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    Icons.Default.SkipNext,
+                    contentDescription = "Next",
+                    tint = Color.White,
+                    modifier = Modifier.size(32.dp)
+                )
+            }
+        }
 
         // Repeat
-        ModernIconButton(
-            icon = when (repeatMode) {
-                Player.REPEAT_MODE_ONE -> Icons.Default.RepeatOne
-                else -> Icons.Default.Repeat
-            },
-            isActive = repeatMode != Player.REPEAT_MODE_OFF,
+        IconButton(
             onClick = onRepeatClick,
-            size = 48.dp
-        )
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun ModernIconButton(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    isActive: Boolean,
-    onClick: () -> Unit,
-    size: androidx.compose.ui.unit.Dp
-) {
-    val scale by animateFloatAsState(
-        targetValue = if (isActive) 1.1f else 1f,
-        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
-        label = "iconScale"
-    )
-
-    Surface(
-        onClick = onClick,
-        shape = CircleShape,
-        color = if (isActive) Color.White.copy(alpha = 0.25f) else Color.Transparent,
-        modifier = Modifier
-            .size(size)
-            .scale(scale)
-    ) {
-        Box(contentAlignment = Alignment.Center) {
+            modifier = Modifier.size(48.dp)
+        ) {
             Icon(
-                icon,
-                contentDescription = null,
-                tint = if (isActive) Color.White else Color.White.copy(alpha = 0.9f),
-                modifier = Modifier.size(size * 0.6f)
+                when (repeatMode) {
+                    Player.REPEAT_MODE_ONE -> Icons.Default.RepeatOne
+                    else -> Icons.Default.Repeat
+                },
+                contentDescription = "Repeat",
+                tint = if (repeatMode != Player.REPEAT_MODE_OFF) Color.White else Color.White.copy(alpha = 0.5f),
+                modifier = Modifier.size(24.dp)
             )
         }
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun ModernPlayPauseButton(
-    isPlaying: Boolean,
-    onClick: () -> Unit
-) {
-    var isPressed by remember { mutableStateOf(false) }
-
-    val scale by animateFloatAsState(
-        targetValue = if (isPressed) 0.9f else 1f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessMedium
-        ),
-        label = "playPauseScale"
-    )
-
-    // ✅ Animation de pulsation pendant la lecture
-    val pulse by rememberInfiniteTransition(label = "pulse")
-        .animateFloat(
-            initialValue = 1f,
-            targetValue = 1.05f,
-            animationSpec = infiniteRepeatable(
-                animation = tween(1000, easing = FastOutSlowInEasing),
-                repeatMode = RepeatMode.Reverse
-            ),
-            label = "pulseAnimation"
-        )
-
-    Surface(
-        onClick = {
-            isPressed = true
-            onClick()
-            isPressed = false
-        },
-        shape = CircleShape,
-        color = Color.White,
-        modifier = Modifier
-            .size(80.dp)
-            .scale(scale)
-            .scale(if (isPlaying) pulse else 1f),  // ✅ Pulse quand ça joue
-        shadowElevation = 8.dp
-    ) {
-        Box(contentAlignment = Alignment.Center) {
-            Icon(
-                if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                contentDescription = if (isPlaying) "Pause" else "Play",
-                tint = gradientColors[0],
-                modifier = Modifier.size(40.dp)
-            )
-        }
-    }
+private fun formatTime(millis: Long): String {
+    if (millis < 0) return "0:00"
+    val seconds = (millis / 1000) % 60
+    val minutes = (millis / (1000 * 60)) % 60
+    return String.format("%d:%02d", minutes, seconds)
 }

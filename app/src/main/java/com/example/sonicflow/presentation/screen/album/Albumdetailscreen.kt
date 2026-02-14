@@ -24,19 +24,19 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.sonicflow.domain.model.Track
+import com.example.sonicflow.presentation.components.AlbumArtwork
 import kotlin.math.sin
 
-// 🎨 PALETTE MODERNE
 private val GRADIENT_BACKGROUND = listOf(
-    Color(0xFF6366F1),  // Indigo
-    Color(0xFF8B5CF6),  // Violet
-    Color(0xFFEC4899),  // Rose
-    Color(0xFFF97316)   // Orange
+    Color(0xFF6366F1),
+    Color(0xFF8B5CF6),
+    Color(0xFFEC4899),
+    Color(0xFFF97316)
 )
 
 private val TRACK_CARD_GRADIENT = listOf(
-    Color(0xFF2D1B4E),  // Violet foncé
-    Color(0xFF1F1535)   // Violet très foncé
+    Color(0xFF2D1B4E),
+    Color(0xFF1F1535)
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -50,7 +50,6 @@ fun AlbumDetailScreen(
 ) {
     val album by viewModel.getAlbumByName(albumName, artistName).collectAsState(initial = null)
 
-    // Animation pour le fond dynamique
     val infiniteTransition = rememberInfiniteTransition(label = "album_detail_bg")
     val gradientOffset by infiniteTransition.animateFloat(
         initialValue = 0f,
@@ -63,7 +62,6 @@ fun AlbumDetailScreen(
     )
 
     Box(modifier = Modifier.fillMaxSize()) {
-        // 🌈 FOND GRADIENT ANIMÉ
         Canvas(
             modifier = Modifier.fillMaxSize()
         ) {
@@ -264,24 +262,16 @@ private fun ModernAlbumHeader(album: com.example.sonicflow.domain.model.Album) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // Cover album
-        Surface(
-            shape = RoundedCornerShape(24.dp),
-            color = Color.White.copy(alpha = 0.15f),
-            modifier = Modifier.size(200.dp)
-        ) {
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier.fillMaxSize()
-            ) {
-                Icon(
-                    Icons.Default.Album,
-                    contentDescription = null,
-                    modifier = Modifier.size(100.dp),
-                    tint = Color.White
-                )
-            }
-        }
+        AlbumArtwork(
+            albumArtUri = album.tracks.firstOrNull()?.albumArtUri,
+            size = 200.dp,
+            cornerRadius = 24.dp,
+            iconSize = 100.dp,
+            gradientColors = listOf(
+                Color.White.copy(alpha = 0.3f),
+                Color.White.copy(alpha = 0.15f)
+            )
+        )
 
         // Nom de l'album
         Text(
@@ -406,6 +396,17 @@ private fun ModernTrackItem(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                AlbumArtwork(
+                    albumArtUri = track.albumArtUri,
+                    size = 48.dp,
+                    cornerRadius = 10.dp,
+                    iconSize = 24.dp,
+                    gradientColors = listOf(
+                        Color.White.copy(alpha = 0.2f),
+                        Color.White.copy(alpha = 0.1f)
+                    )
+                )
+
                 // Numéro de piste
                 Surface(
                     shape = CircleShape,

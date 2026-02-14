@@ -1,5 +1,6 @@
 package com.example.sonicflow.data.repository
 
+import android.net.Uri
 import com.example.sonicflow.data.local.dao.TrackDao
 import com.example.sonicflow.data.local.database.entities.TrackEntity
 import com.example.sonicflow.data.remote.mediastore.MediaStoreDataSource
@@ -53,7 +54,7 @@ class TrackRepositoryImpl @Inject constructor(
         duration = duration,
         uri = uri,
         album = album,
-        albumArtUri = albumArtUri ?: "",
+        albumArtUri = albumArtUri?.let { Uri.parse(it) },
         path = path,
         size = size,
         dateAdded = dateAdded,
@@ -68,7 +69,7 @@ class TrackRepositoryImpl @Inject constructor(
         duration = duration,
         uri = uri,
         album = album,
-        albumArtUri = albumArtUri,
+        albumArtUri = albumArtUri?.toString(),
         path = path,
         size = size,
         dateAdded = dateAdded,

@@ -30,19 +30,19 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.sonicflow.domain.model.Album
+import com.example.sonicflow.presentation.components.AlbumArtwork
 import kotlinx.coroutines.delay
 
-// 🎨 PALETTE MODERNE
 private val GRADIENT_COLORS = listOf(
-    Color(0xFF6366F1),  // Indigo
-    Color(0xFF8B5CF6),  // Violet
-    Color(0xFFEC4899),  // Rose
-    Color(0xFFF97316)   // Orange
+    Color(0xFF6366F1),
+    Color(0xFF8B5CF6),
+    Color(0xFFEC4899),
+    Color(0xFFF97316)
 )
 
 private val ALBUM_CARD_GRADIENT = listOf(
-    Color(0xFF2D1B4E),  // Violet foncé
-    Color(0xFF1F1535)   // Violet très foncé
+    Color(0xFF2D1B4E),
+    Color(0xFF1F1535)
 )
 
 @Composable
@@ -564,7 +564,7 @@ private fun ModernAlbumGridItem(
         color = Color.Transparent,
         modifier = Modifier
             .fillMaxWidth()
-            .height(220.dp) // ✅ HAUTEUR FIXE pour uniformiser toutes les cartes
+            .height(220.dp)
     ) {
         Box(
             modifier = Modifier
@@ -582,26 +582,18 @@ private fun ModernAlbumGridItem(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.SpaceBetween
             ) {
-                // Cover album
-                Surface(
-                    color = GRADIENT_COLORS[1].copy(alpha = 0.2f),
-                    shape = RoundedCornerShape(12.dp),
+                AlbumArtwork(
+                    albumArtUri = album.tracks.firstOrNull()?.albumArtUri,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .aspectRatio(1f)
-                ) {
-                    Box(
-                        contentAlignment = Alignment.Center,
-                        modifier = Modifier.fillMaxSize()
-                    ) {
-                        Icon(
-                            Icons.Default.Album,
-                            contentDescription = null,
-                            modifier = Modifier.size(56.dp),
-                            tint = GRADIENT_COLORS[1]
-                        )
-                    }
-                }
+                        .aspectRatio(1f),
+                    cornerRadius = 12.dp,
+                    iconSize = 56.dp,
+                    gradientColors = listOf(
+                        GRADIENT_COLORS[1].copy(alpha = 0.4f),
+                        GRADIENT_COLORS[1].copy(alpha = 0.2f)
+                    )
+                )
 
                 // Info album (hauteur fixe)
                 Column(

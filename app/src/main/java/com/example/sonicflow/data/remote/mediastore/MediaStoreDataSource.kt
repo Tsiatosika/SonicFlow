@@ -1,6 +1,8 @@
 package com.example.sonicflow.data.remote.mediastore
 
 import android.content.ContentResolver
+import android.content.ContentUris
+import android.net.Uri
 import android.provider.MediaStore
 import com.example.sonicflow.domain.model.Track
 import javax.inject.Inject
@@ -17,6 +19,7 @@ class MediaStoreDataSource @Inject constructor(
             MediaStore.Audio.Media.TITLE,
             MediaStore.Audio.Media.ARTIST,
             MediaStore.Audio.Media.ALBUM,
+            MediaStore.Audio.Media.ALBUM_ID,
             MediaStore.Audio.Media.DURATION,
             MediaStore.Audio.Media.DATA,
             MediaStore.Audio.Media.SIZE,
@@ -40,6 +43,7 @@ class MediaStoreDataSource @Inject constructor(
             val titleColumn = it.getColumnIndexOrThrow(MediaStore.Audio.Media.TITLE)
             val artistColumn = it.getColumnIndexOrThrow(MediaStore.Audio.Media.ARTIST)
             val albumColumn = it.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM)
+            val albumIdColumn = it.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM_ID)  // ✅ AJOUTÉ
             val durationColumn = it.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION)
             val dataColumn = it.getColumnIndexOrThrow(MediaStore.Audio.Media.DATA)
             val sizeColumn = it.getColumnIndexOrThrow(MediaStore.Audio.Media.SIZE)
@@ -52,6 +56,7 @@ class MediaStoreDataSource @Inject constructor(
                 val title = it.getString(titleColumn) ?: "Unknown Title"
                 val artist = it.getString(artistColumn) ?: "Unknown Artist"
                 val album = it.getString(albumColumn) ?: "Unknown Album"
+                val albumId = it.getLong(albumIdColumn)  // ✅ AJOUTÉ
                 val duration = it.getLong(durationColumn)
                 val path = it.getString(dataColumn) ?: ""
                 val size = it.getLong(sizeColumn)
@@ -59,8 +64,21 @@ class MediaStoreDataSource @Inject constructor(
                 val displayName = it.getString(displayNameColumn) ?: ""
                 val mimeType = it.getString(mimeTypeColumn) ?: "audio/mpeg"
 
-                // Construire l'URI du fichier
-                val uri = "${MediaStore.Audio.Media.EXTERNAL_CONTENT_URI}/$id"
+                // ✅ Construire l'URI du fichier audio
+                val uri = ContentUris.withAppendedId(
+                    MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
+                    id
+                ).toString()
+
+                // ✅ Construire l'URI de l'artwork d'album
+                val albumArtUri: Uri? = try {
+                    ContentUris.withAppendedId(
+                        Uri.parse("content://media/external/audio/albumart"),
+                        albumId
+                    )
+                } catch (e: Exception) {
+                    null
+                }
 
                 audioFiles.add(
                     Track(
@@ -70,7 +88,7 @@ class MediaStoreDataSource @Inject constructor(
                         album = album,
                         duration = duration,
                         uri = uri,
-                        albumArtUri = "",
+                        albumArtUri = albumArtUri,  // ✅ CHANGÉ: maintenant Uri?
                         path = path,
                         size = size,
                         dateAdded = dateAdded,

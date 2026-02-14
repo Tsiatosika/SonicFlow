@@ -35,12 +35,11 @@ import com.example.sonicflow.presentation.screen.playlist.PlaylistContent
 import com.example.sonicflow.presentation.screen.playlist.PlaylistViewModel
 import kotlin.math.sin
 
-// 🎨 PALETTE MODERNE - GRADIENTS DYNAMIQUES
 private val GRADIENT_BACKGROUND = listOf(
-    Color(0xFF6366F1),  // Indigo
-    Color(0xFF8B5CF6),  // Violet
-    Color(0xFFEC4899),  // Rose
-    Color(0xFFF97316)   // Orange
+    Color(0xFF6366F1),
+    Color(0xFF8B5CF6),
+    Color(0xFFEC4899),
+    Color(0xFFF97316)
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -81,7 +80,6 @@ fun HomeScreen(
     Box(
         modifier = Modifier.fillMaxSize()
     ) {
-        // 🌈 FOND GRADIENT ANIMÉ DYNAMIQUE
         Canvas(
             modifier = Modifier
                 .fillMaxSize()
@@ -261,7 +259,6 @@ private fun ModernTopBar(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // ✅ TITRE SIMPLE BLANC - SANS GRADIENT
         Text(
             text = title,
             style = MaterialTheme.typography.headlineLarge.copy(
@@ -302,7 +299,6 @@ private fun ModernTabRow(
         selectedTabIndex = selectedTabIndex,
         containerColor = Color.Transparent,
         edgePadding = 16.dp,
-        // ✅ TRAIT BLANC SOULIGNÉ MODERNE
         indicator = { tabPositions ->
             if (tabPositions.isNotEmpty() && selectedTabIndex < tabPositions.size) {
                 Box(

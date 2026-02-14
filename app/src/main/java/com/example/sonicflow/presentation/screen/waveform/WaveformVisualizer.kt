@@ -14,11 +14,9 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import com.example.sonicflow.domain.model.WaveformData
-import kotlin.math.abs
 
 @Composable
 fun WaveformVisualizer(
@@ -99,7 +97,6 @@ fun WaveformVisualizer(
                     )
                 }
 
-                // Dessiner l'indicateur de position (ligne blanche)
                 drawRoundRect(
                     color = Color.White,
                     topLeft = Offset(progressX - 1.5f, 0f),
@@ -108,7 +105,6 @@ fun WaveformVisualizer(
                 )
             }
         } else {
-            // Afficher un waveform de placeholder si pas de données
             Canvas(
                 modifier = Modifier
                     .fillMaxSize()

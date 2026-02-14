@@ -9,10 +9,6 @@ import androidx.media3.common.util.UnstableApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
-/**
- * Manager pour gérer la connexion au AudioPlayerService
- * Utilisez cette classe pour interagir avec le service audio depuis les repositories
- */
 @UnstableApi
 class AudioPlayerServiceManager(private val context: Context) {
 

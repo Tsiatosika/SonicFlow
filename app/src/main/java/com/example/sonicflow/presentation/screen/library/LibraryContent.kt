@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.sonicflow.domain.model.Playlist
 import com.example.sonicflow.domain.model.Track
+import com.example.sonicflow.presentation.components.AlbumArtwork
 import kotlinx.coroutines.delay
 import kotlin.math.sin
 
@@ -88,6 +89,7 @@ fun LibraryContent(
     val trackDetailsText by viewModel.trackDetailsText.collectAsState()
 
     LaunchedEffect(Unit) {
+        viewModel.loadTracks()  // ✅ Charger les tracks maintenant (avec permission)
         viewModel.loadPlaylists()
     }
 
@@ -1072,24 +1074,23 @@ private fun ModernTrackItem(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Icône de musique
-                Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = if (isPlaying)
-                        GRADIENT_COLORS[1].copy(alpha = 0.3f)
-                    else
-                        Color.White.copy(alpha = 0.1f),
-                    modifier = Modifier.size(52.dp)
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            if (isPlaying) Icons.Default.PlayArrow else Icons.Default.MusicNote,
-                            contentDescription = null,
-                            tint = if (isPlaying) GRADIENT_COLORS[1] else Color.White.copy(alpha = 0.7f),
-                            modifier = Modifier.size(28.dp)
+                // ✅ Icône de musique avec image d'album
+                AlbumArtwork(
+                    albumArtUri = track.albumArtUri,
+                    size = 52.dp,
+                    cornerRadius = 12.dp,
+                    iconSize = 28.dp,
+                    gradientColors = if (isPlaying)
+                        listOf(
+                            GRADIENT_COLORS[1].copy(alpha = 0.6f),
+                            GRADIENT_COLORS[1].copy(alpha = 0.3f)
                         )
-                    }
-                }
+                    else
+                        listOf(
+                            Color.White.copy(alpha = 0.2f),
+                            Color.White.copy(alpha = 0.1f)
+                        )
+                )
 
                 // Infos du morceau
                 Column(

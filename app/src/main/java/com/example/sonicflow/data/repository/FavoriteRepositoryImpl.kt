@@ -1,5 +1,6 @@
 package com.example.sonicflow.data.repository
 
+import android.net.Uri
 import com.example.sonicflow.data.local.dao.FavoriteDao
 import com.example.sonicflow.data.local.database.entities.FavoriteEntity
 import com.example.sonicflow.domain.model.Track
@@ -22,7 +23,7 @@ class FavoriteRepositoryImpl @Inject constructor(
                     album = entity.album,
                     duration = entity.duration,
                     uri = entity.uri,
-                    albumArtUri = entity.albumArtUri ?: "",
+                    albumArtUri = entity.albumArtUri?.let { Uri.parse(it) },
                     path = entity.path,
                     size = entity.size,
                     dateAdded = entity.dateAdded,

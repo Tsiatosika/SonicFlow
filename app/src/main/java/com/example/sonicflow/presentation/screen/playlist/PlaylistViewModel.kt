@@ -21,21 +21,16 @@ class PlaylistViewModel @Inject constructor(
     private val audioPlayerRepository: AudioPlayerRepository
 ) : ViewModel() {
 
-    // ============================================================================
-    // STATE FLOWS
-    // ============================================================================
 
     private val _playlists = MutableStateFlow<List<Playlist>>(emptyList())
     val playlists: StateFlow<List<Playlist>> = _playlists.asStateFlow()
 
-    // ✅ FIX 1: Ajouter currentPlaylist et playlistTracks
     private val _currentPlaylist = MutableStateFlow<Playlist?>(null)
     val currentPlaylist: StateFlow<Playlist?> = _currentPlaylist.asStateFlow()
 
     private val _playlistTracks = MutableStateFlow<List<Track>>(emptyList())
     val playlistTracks: StateFlow<List<Track>> = _playlistTracks.asStateFlow()
 
-    // ✅ FIX 2: Ajouter currentPlayingTrack
     private val _currentPlayingTrack = MutableStateFlow<Track?>(null)
     val currentPlayingTrack: StateFlow<Track?> = _currentPlayingTrack.asStateFlow()
 
@@ -53,10 +48,6 @@ class PlaylistViewModel @Inject constructor(
         observeCurrentTrack()
     }
 
-    // ============================================================================
-    // OBSERVERS
-    // ============================================================================
-
     private fun observeCurrentTrack() {
         viewModelScope.launch {
             audioPlayerRepository.getCurrentPlayingTrack().collect { track ->
@@ -64,10 +55,6 @@ class PlaylistViewModel @Inject constructor(
             }
         }
     }
-
-    // ============================================================================
-    // PLAYLIST OPERATIONS
-    // ============================================================================
 
     fun loadPlaylists() {
         viewModelScope.launch {
@@ -86,7 +73,6 @@ class PlaylistViewModel @Inject constructor(
         }
     }
 
-    // ✅ FIX 3: Ajouter loadPlaylist qui charge playlist + tracks
     fun loadPlaylist(playlistId: Long) {
         viewModelScope.launch {
             _isLoading.value = true
@@ -138,7 +124,6 @@ class PlaylistViewModel @Inject constructor(
         }
     }
 
-    // ✅ FIX 4: Ajouter renamePlaylist
     fun renamePlaylist(playlistId: Long, newName: String) {
         viewModelScope.launch {
             try {
@@ -170,10 +155,6 @@ class PlaylistViewModel @Inject constructor(
             }
         }
     }
-
-    // ============================================================================
-    // TRACK OPERATIONS
-    // ============================================================================
 
     fun addTrackToPlaylist(playlistId: Long, trackId: Long) {
         viewModelScope.launch {
@@ -214,12 +195,6 @@ class PlaylistViewModel @Inject constructor(
             }
         }
     }
-
-    // ============================================================================
-    // PLAYBACK OPERATIONS
-    // ============================================================================
-
-    // ✅ FIX 5: Ajouter playPlaylistTracks avec index
     fun playPlaylistTracks(startIndex: Int = 0) {
         viewModelScope.launch {
             try {
@@ -238,7 +213,6 @@ class PlaylistViewModel @Inject constructor(
         }
     }
 
-    // ✅ FIX 6: Ajouter playAllPlaylistTracks
     fun playAllPlaylistTracks() {
         playPlaylistTracks(0)
     }

@@ -18,7 +18,7 @@ import com.example.sonicflow.data.local.database.entities.*
         FavoriteEntity::class
     ],
     version = 1,
-    exportSchema = false  // Pour éviter l'avertissement de schema
+    exportSchema = false
 )
 @TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {

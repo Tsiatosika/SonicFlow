@@ -186,7 +186,6 @@ class WaveformRepositoryImpl @Inject constructor(
     }
 
     private fun generateDefaultWaveform(points: Int = 200): List<Float> {
-        // Générer une forme d'onde aléatoire mais réaliste
         return List(points) { i ->
             val progress = i.toFloat() / points
             val base = 0.3f + 0.4f * kotlin.math.sin(progress * Math.PI * 4).toFloat()

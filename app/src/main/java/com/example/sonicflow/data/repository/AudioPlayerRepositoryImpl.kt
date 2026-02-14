@@ -17,7 +17,6 @@ class AudioPlayerRepositoryImpl @Inject constructor(
 
     override fun getPlaybackState(): Flow<PlaybackState> {
         return serviceConnection.getPlaybackState().map { serviceState ->
-            // Convertir AudioPlayerService.PlaybackState vers domain.PlaybackState
             PlaybackState(
                 isPlaying = serviceState.isPlaying,
                 currentPosition = serviceState.currentPosition,

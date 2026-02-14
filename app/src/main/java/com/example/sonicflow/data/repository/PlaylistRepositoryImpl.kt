@@ -1,5 +1,6 @@
 package com.example.sonicflow.data.repository
 
+import android.net.Uri
 import com.example.sonicflow.data.local.dao.PlaylistDao
 import com.example.sonicflow.data.local.dao.PlaylistTrackCrossRefDao
 import com.example.sonicflow.data.local.dao.TrackDao
@@ -8,11 +9,9 @@ import com.example.sonicflow.data.local.database.entities.PlaylistTrackCrossRefE
 import com.example.sonicflow.domain.model.Playlist
 import com.example.sonicflow.domain.model.Track
 import com.example.sonicflow.domain.repository.PlaylistRepository
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 class PlaylistRepositoryImpl @Inject constructor(
@@ -51,7 +50,7 @@ class PlaylistRepositoryImpl @Inject constructor(
                         album = entity.album,
                         duration = entity.duration,
                         uri = entity.uri,
-                        albumArtUri = entity.albumArtUri ?: "",
+                        albumArtUri = entity.albumArtUri?.let { Uri.parse(it) },
                         path = entity.path,
                         size = entity.size,
                         dateAdded = entity.dateAdded,
