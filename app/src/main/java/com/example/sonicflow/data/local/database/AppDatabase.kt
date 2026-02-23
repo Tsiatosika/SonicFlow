@@ -15,9 +15,10 @@ import com.example.sonicflow.data.local.database.entities.*
         TrackEntity::class,
         PlaylistTrackCrossRefEntity::class,
         WaveformDataEntity::class,
-        FavoriteEntity::class
+        FavoriteEntity::class,
+        RecentlyPlayedEntity::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -27,7 +28,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun playlistDao(): PlaylistDao
     abstract fun playlistTrackCrossRefDao(): PlaylistTrackCrossRefDao
     abstract fun waveformDataDao(): WaveformDataDao
-    abstract fun favoriteDao() : FavoriteDao
+    abstract fun favoriteDao(): FavoriteDao
+    abstract fun recentlyPlayedDao(): RecentlyPlayedDao
 
     companion object {
         @Volatile

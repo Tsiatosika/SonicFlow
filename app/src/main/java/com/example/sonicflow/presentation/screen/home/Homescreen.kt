@@ -13,8 +13,6 @@ import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -49,6 +47,8 @@ fun HomeScreen(
     onPlaylistDetailClick: (Long) -> Unit,
     onArtistDetailClick: (String) -> Unit,
     onAlbumDetailClick: (String, String) -> Unit,
+    onFavoritesClick: () -> Unit,
+    onRecentlyPlayedClick: () -> Unit,
     libraryViewModel: LibraryViewModel = hiltViewModel(),
     playlistViewModel: PlaylistViewModel = hiltViewModel(),
     favoritesViewModel: FavoritesViewModel = hiltViewModel(),
@@ -58,7 +58,6 @@ fun HomeScreen(
     var selectedTabIndex by remember { mutableStateOf(0) }
     var isSearchActive by remember { mutableStateOf(false) }
 
-    // Animation pour le fond dynamique
     val infiniteTransition = rememberInfiniteTransition(label = "background_animation")
     val gradientOffset by infiniteTransition.animateFloat(
         initialValue = 0f,
@@ -77,17 +76,11 @@ fun HomeScreen(
         "Playlists"
     )
 
-    Box(
-        modifier = Modifier.fillMaxSize()
-    ) {
-        Canvas(
-            modifier = Modifier
-                .fillMaxSize()
-        ) {
+    Box(modifier = Modifier.fillMaxSize()) {
+        Canvas(modifier = Modifier.fillMaxSize()) {
             val width = size.width
             val height = size.height
 
-            // Gradient principal animé
             drawRect(
                 brush = Brush.linearGradient(
                     colors = GRADIENT_BACKGROUND,
@@ -96,13 +89,9 @@ fun HomeScreen(
                 )
             )
 
-            // Cercles gradient pour effet de profondeur
             drawCircle(
                 brush = Brush.radialGradient(
-                    colors = listOf(
-                        Color(0xFF06B6D4).copy(alpha = 0.3f),
-                        Color.Transparent
-                    ),
+                    colors = listOf(Color(0xFF06B6D4).copy(alpha = 0.3f), Color.Transparent),
                     radius = height * 0.5f
                 ),
                 radius = height * 0.5f,
@@ -114,10 +103,7 @@ fun HomeScreen(
 
             drawCircle(
                 brush = Brush.radialGradient(
-                    colors = listOf(
-                        Color(0xFFEC4899).copy(alpha = 0.2f),
-                        Color.Transparent
-                    ),
+                    colors = listOf(Color(0xFFEC4899).copy(alpha = 0.2f), Color.Transparent),
                     radius = height * 0.4f
                 ),
                 radius = height * 0.4f,
@@ -135,42 +121,57 @@ fun HomeScreen(
                         .fillMaxWidth()
                         .statusBarsPadding()
                 ) {
-                    // BARRE DU HAUT - Titre + Recherche
                     ModernTopBar(
                         title = "Ma Musique",
                         isSearchActive = isSearchActive,
                         onSearchClick = { isSearchActive = !isSearchActive }
                     )
 
-                    // ❤️ GRANDE ICÔNE FAVORIS À GAUCHE DANS UN CARRÉ
-                    Box(
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 20.dp, vertical = 16.dp),
-                        contentAlignment = Alignment.CenterStart
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         Surface(
-                            onClick = {
-                                selectedTabIndex = 4
-                            },
+                            onClick = onFavoritesClick,
                             shape = RoundedCornerShape(16.dp),
                             color = Color.White.copy(alpha = 0.15f),
-                            modifier = Modifier.size(64.dp)
+                            modifier = Modifier.weight(1f)
                         ) {
-                            Box(
-                                contentAlignment = Alignment.Center
+                            Row(
+                                modifier = Modifier.padding(16.dp),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Icon(
-                                    Icons.Default.Favorite,
-                                    contentDescription = "Favoris",
-                                    tint = Color.White,
-                                    modifier = Modifier.size(32.dp)
+                                Icon(Icons.Default.Favorite, contentDescription = "Favoris", tint = Color.White, modifier = Modifier.size(28.dp))
+                                Text(
+                                    text = "Favoris",
+                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold, color = Color.White)
+                                )
+                            }
+                        }
+
+                        Surface(
+                            onClick = onRecentlyPlayedClick,
+                            shape = RoundedCornerShape(16.dp),
+                            color = Color.White.copy(alpha = 0.15f),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(16.dp),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(Icons.Default.History, contentDescription = "Récents", tint = Color.White, modifier = Modifier.size(28.dp))
+                                Text(
+                                    text = "Récents",
+                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold, color = Color.White)
                                 )
                             }
                         }
                     }
 
-                    // ONGLETS
                     ModernTabRow(
                         selectedTabIndex = selectedTabIndex,
                         tabs = tabs,
@@ -192,13 +193,20 @@ fun HomeScreen(
                     0 -> {
                         LibraryContent(
                             viewModel = libraryViewModel,
-                            onTrackClick = onTrackClick,
+                            // ✅ FIX : onTrackClick appelle playTrackFromList pour enregistrer dans Recently Played
+                            onTrackClick = { track ->
+                                libraryViewModel.playTrackFromList(track)
+                                onTrackClick(track)
+                            },
                             onAlbumClick = { albumName, artistName ->
                                 onAlbumDetailClick(albumName, artistName)
                             },
                             onArtistClick = { artistName ->
                                 onArtistDetailClick(artistName)
                             },
+                            // ✅ FIX : Passer les callbacks manquants à LibraryContent
+                            onFavoritesClick = onFavoritesClick,
+                            onRecentlyPlayedClick = onRecentlyPlayedClick,
                             isSearchActive = isSearchActive,
                             onSearchActiveChange = { isSearchActive = it }
                         )
@@ -227,14 +235,6 @@ fun HomeScreen(
                         PlaylistContent(
                             viewModel = playlistViewModel,
                             onPlaylistClick = onPlaylistDetailClick,
-                            isSearchActive = isSearchActive,
-                            onSearchActiveChange = { isSearchActive = it }
-                        )
-                    }
-                    4 -> {
-                        FavoritesContent(
-                            viewModel = favoritesViewModel,
-                            onTrackClick = onTrackClick,
                             isSearchActive = isSearchActive,
                             onSearchActiveChange = { isSearchActive = it }
                         )
@@ -269,7 +269,6 @@ private fun ModernTopBar(
             )
         )
 
-        // Bouton Search
         Surface(
             onClick = onSearchClick,
             shape = CircleShape,

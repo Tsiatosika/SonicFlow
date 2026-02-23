@@ -1,26 +1,52 @@
 package com.example.sonicflow.presentation.screen.favorites
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.*
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.example.sonicflow.domain.model.Track
 import kotlinx.coroutines.delay
+import kotlin.math.sin
+
+
+private val SPECTRUM_COLORS = listOf(
+    Color(0xFF9D00FF),  // Violet électrique
+    Color(0xFFB700FF),  // Magenta vif (favoris)
+    Color(0xFFD600FF),  // Rose violet
+    Color(0xFF8B5CF6),  // Violet profond
+    Color(0xFF06B6D4),  // Cyan électrique
+    Color(0xFF00A3FF),  // Bleu vif
+    Color(0xFF3B82F6)   // Bleu royal
+)
 
 @Composable
 fun FavoritesContent(
@@ -31,9 +57,11 @@ fun FavoritesContent(
 ) {
     val favoriteTracks by viewModel.favoriteTracks.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
+    val currentPlayingTrack by viewModel.currentPlayingTrack.collectAsState()
 
     var searchQuery by remember { mutableStateOf("") }
     val focusRequester = remember { FocusRequester() }
+    var trackToRemove by remember { mutableStateOf<Track?>(null) }
 
     // Filtrer les favoris selon la recherche
     val filteredTracks = remember(favoriteTracks, searchQuery) {
@@ -48,6 +76,18 @@ fun FavoritesContent(
         }
     }
 
+    // Animation pour le fond
+    val infiniteTransition = rememberInfiniteTransition(label = "favorites_background")
+    val gradientOffset by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1000f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(15000, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "gradient_offset"
+    )
+
     LaunchedEffect(Unit) {
         viewModel.loadFavorites()
     }
@@ -61,15 +101,40 @@ fun FavoritesContent(
         }
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFF0A0A0A))
+    ) {
+        // Background animé subtil
+        Canvas(modifier = Modifier.fillMaxSize().alpha(0.08f)) {
+            val width = size.width
+            val height = size.height
+
+            drawCircle(
+                brush = Brush.radialGradient(
+                    colors = listOf(
+                        SPECTRUM_COLORS[1].copy(alpha = 0.1f),
+                        Color.Transparent
+                    ),
+                    radius = height * 0.6f
+                ),
+                radius = height * 0.6f,
+                center = Offset(
+                    x = width * 0.2f + sin(gradientOffset * 0.01f) * 30f,
+                    y = height * 0.2f
+                )
+            )
+        }
+
         Column(modifier = Modifier.fillMaxSize()) {
-            // SearchBar
+            // SearchBar moderne
             AnimatedVisibility(
                 visible = isSearchActive,
                 enter = fadeIn() + slideInVertically(),
                 exit = fadeOut() + slideOutVertically()
             ) {
-                SearchBar(
+                ModernSearchBar(
                     query = searchQuery,
                     onQueryChange = { searchQuery = it },
                     onClose = {
@@ -80,6 +145,28 @@ fun FavoritesContent(
                 )
             }
 
+            // Titre principal (caché pendant la recherche)
+            if (!isSearchActive) {
+                Text(
+                    text = "Mes favoris",
+                    style = MaterialTheme.typography.headlineMedium.copy(
+                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = 32.sp,
+                        color = Color.White
+                    ),
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                )
+
+                if (favoriteTracks.isNotEmpty()) {
+                    Text(
+                        text = "${favoriteTracks.size} morceau${if (favoriteTracks.size > 1) "x" else ""}",
+                        style = MaterialTheme.typography.bodyLarge.copy(
+                            color = Color.White.copy(alpha = 0.6f)
+                        ),
+                    )
+                }
+            }
+
             // Content
             Box(
                 modifier = Modifier
@@ -88,79 +175,38 @@ fun FavoritesContent(
             ) {
                 when {
                     isLoading -> {
-                        CircularProgressIndicator(
-                            modifier = Modifier.align(Alignment.Center)
-                        )
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator(
+                                color = SPECTRUM_COLORS[1],
+                                strokeWidth = 3.dp,
+                                modifier = Modifier.size(48.dp)
+                            )
+                        }
                     }
                     filteredTracks.isEmpty() && searchQuery.isNotEmpty() -> {
-                        Column(
-                            modifier = Modifier.align(Alignment.Center),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Icon(
-                                Icons.Default.SearchOff,
-                                contentDescription = null,
-                                modifier = Modifier.size(64.dp),
-                                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
-                            )
-                            Spacer(modifier = Modifier.height(16.dp))
-                            Text("Aucun résultat pour \"$searchQuery\"")
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                "Essayez avec un autre terme",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                            )
-                        }
+                        ModernEmptySearchState(searchQuery = searchQuery)
                     }
                     favoriteTracks.isEmpty() -> {
-                        Column(
-                            modifier = Modifier.align(Alignment.Center),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Icon(
-                                Icons.Default.FavoriteBorder,
-                                contentDescription = null,
-                                modifier = Modifier.size(80.dp),
-                                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
-                            )
-                            Spacer(modifier = Modifier.height(16.dp))
-                            Text(
-                                text = "Aucun favori",
-                                style = MaterialTheme.typography.titleLarge
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                text = "Appuyez sur ♥ pour ajouter des morceaux à vos favoris",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                            )
-                        }
+                        ModernEmptyFavoritesState()
                     }
                     else -> {
                         LazyColumn(
                             modifier = Modifier.fillMaxSize(),
-                            verticalArrangement = Arrangement.spacedBy(1.dp)
+                            contentPadding = PaddingValues(
+                                top = if (isSearchActive) 8.dp else 0.dp,
+                                bottom = 100.dp
+                            )
                         ) {
-                            // Header
-                            item {
-                                FavoritesHeader(trackCount = favoriteTracks.size)
-                            }
-
                             // Résultats de recherche
                             if (searchQuery.isNotEmpty()) {
                                 item {
-                                    Surface(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        color = MaterialTheme.colorScheme.surfaceVariant
-                                    ) {
-                                        Text(
-                                            text = "${filteredTracks.size} résultat${if (filteredTracks.size > 1) "s" else ""}",
-                                            modifier = Modifier.padding(16.dp),
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                    }
+                                    SearchResultHeader(
+                                        count = filteredTracks.size,
+                                        query = searchQuery
+                                    )
                                 }
                             }
 
@@ -168,12 +214,14 @@ fun FavoritesContent(
                             items(filteredTracks, key = { it.id }) { track ->
                                 FavoriteTrackItem(
                                     track = track,
+                                    isCurrentlyPlaying = currentPlayingTrack?.id == track.id,
                                     onClick = {
-                                        viewModel.playFavorites(favoriteTracks.indexOf(track))
+                                        val index = favoriteTracks.indexOf(track)
+                                        viewModel.playFavorites(index)
                                         onTrackClick(track)
                                     },
                                     onRemoveFavorite = {
-                                        viewModel.removeFromFavorites(track.id)
+                                        trackToRemove = track
                                     }
                                 )
                             }
@@ -182,27 +230,38 @@ fun FavoritesContent(
                 }
 
                 // FAB pour jouer tous les favoris
-                if (favoriteTracks.isNotEmpty()) {
-                    FloatingActionButton(
+                if (favoriteTracks.isNotEmpty() && !isSearchActive) {
+                    PlayAllFAB(
                         onClick = {
                             viewModel.playAllFavorites()
                             onTrackClick(favoriteTracks.first())
-                        },
-                        modifier = Modifier
-                            .align(Alignment.BottomEnd)
-                            .padding(16.dp)
-                    ) {
-                        Icon(Icons.Default.PlayArrow, contentDescription = "Play all")
-                    }
+                        }
+                    )
                 }
             }
+        }
+
+        // Dialog: Retirer des favoris
+        if (trackToRemove != null) {
+            ModernRemoveFavoriteDialog(
+                track = trackToRemove!!,
+                onConfirm = {
+                    viewModel.removeFromFavorites(trackToRemove!!.id)
+                    trackToRemove = null
+                },
+                onDismiss = { trackToRemove = null }
+            )
         }
     }
 }
 
+// ============================================================================
+// COMPOSANTS MODERNES
+// ============================================================================
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun SearchBar(
+private fun ModernSearchBar(
     query: String,
     onQueryChange: (String) -> Unit,
     onClose: () -> Unit,
@@ -210,67 +269,202 @@ private fun SearchBar(
     modifier: Modifier = Modifier
 ) {
     Surface(
-        modifier = modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.surface,
-        tonalElevation = 3.dp
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(8.dp),
+        shape = RoundedCornerShape(24.dp),
+        color = Color(0xFF1A1A1A),
+        shadowElevation = 8.dp
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(8.dp),
+                .padding(4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            IconButton(onClick = onClose) {
-                Icon(Icons.Default.ArrowBack, contentDescription = "Close search")
+            IconButton(
+                onClick = onClose,
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(Color.White.copy(alpha = 0.1f))
+            ) {
+                Icon(
+                    Icons.Default.ArrowBack,
+                    contentDescription = "Close",
+                    tint = Color.White,
+                    modifier = Modifier.size(20.dp)
+                )
             }
+
             TextField(
                 value = query,
                 onValueChange = onQueryChange,
-                placeholder = { Text("Rechercher dans les favoris...") },
+                placeholder = {
+                    Text(
+                        "Rechercher dans les favoris...",
+                        color = Color.White.copy(alpha = 0.5f)
+                    )
+                },
                 singleLine = true,
                 colors = TextFieldDefaults.colors(
-                    focusedContainerColor = MaterialTheme.colorScheme.surface,
-                    unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-                    focusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
-                    unfocusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent
+                    focusedContainerColor = Color.Transparent,
+                    unfocusedContainerColor = Color.Transparent,
+                    focusedIndicatorColor = Color.Transparent,
+                    unfocusedIndicatorColor = Color.Transparent,
+                    cursorColor = SPECTRUM_COLORS[1],
+                    focusedTextColor = Color.White,
+                    unfocusedTextColor = Color.White
                 ),
                 modifier = Modifier
                     .weight(1f)
                     .focusRequester(focusRequester)
+            )
+
+            if (query.isNotEmpty()) {
+                IconButton(
+                    onClick = { onQueryChange("") },
+                    modifier = Modifier
+                        .size(32.dp)
+                        .clip(CircleShape)
+                        .background(Color.White.copy(alpha = 0.1f))
+                ) {
+                    Icon(
+                        Icons.Default.Close,
+                        contentDescription = "Clear",
+                        tint = Color.White,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SearchResultHeader(
+    count: Int,
+    query: String
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = "$count résultat${if (count > 1) "s" else ""}",
+            style = MaterialTheme.typography.titleSmall.copy(
+                fontWeight = FontWeight.Bold,
+                color = Color.White.copy(alpha = 0.8f)
+            )
+        )
+
+        Surface(
+            shape = RoundedCornerShape(100.dp),
+            color = SPECTRUM_COLORS[1].copy(alpha = 0.15f),
+            modifier = Modifier.padding(2.dp)
+        ) {
+            Text(
+                text = "\"$query\"",
+                style = MaterialTheme.typography.bodySmall.copy(
+                    color = SPECTRUM_COLORS[1]
+                ),
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
             )
         }
     }
 }
 
 @Composable
-fun FavoritesHeader(trackCount: Int) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.primaryContainer
+private fun ModernEmptyFavoritesState() {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
     ) {
-        Column(
-            modifier = Modifier.padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+        Surface(
+            shape = CircleShape,
+            color = SPECTRUM_COLORS[1].copy(alpha = 0.1f),
+            modifier = Modifier.size(120.dp)
         ) {
-            Icon(
-                Icons.Default.Favorite,
-                contentDescription = null,
-                modifier = Modifier.size(80.dp),
-                tint = Color.Red
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-            Text(
-                text = "Mes Favoris",
-                style = MaterialTheme.typography.headlineMedium,
-                color = MaterialTheme.colorScheme.onPrimaryContainer
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = "$trackCount morceau${if (trackCount > 1) "x" else ""}",
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
-            )
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    Icons.Default.FavoriteBorder,
+                    contentDescription = null,
+                    modifier = Modifier.size(56.dp),
+                    tint = SPECTRUM_COLORS[1].copy(alpha = 0.7f)
+                )
+            }
         }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        Text(
+            text = "Aucun favori",
+            style = MaterialTheme.typography.headlineMedium.copy(
+                fontWeight = FontWeight.ExtraBold,
+                fontSize = 32.sp,
+                color = Color.White
+            )
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Text(
+            text = "Appuyez sur ♥ pour ajouter des morceaux à vos favoris",
+            style = MaterialTheme.typography.bodyLarge,
+            color = Color.White.copy(alpha = 0.6f),
+            textAlign = TextAlign.Center
+        )
+    }
+}
+
+@Composable
+private fun ModernEmptySearchState(searchQuery: String) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Surface(
+            shape = CircleShape,
+            color = Color.White.copy(alpha = 0.05f),
+            modifier = Modifier.size(120.dp)
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    Icons.Default.SearchOff,
+                    contentDescription = null,
+                    modifier = Modifier.size(56.dp),
+                    tint = Color.White.copy(alpha = 0.3f)
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        Text(
+            text = "Aucun résultat trouvé",
+            style = MaterialTheme.typography.titleLarge.copy(
+                fontWeight = FontWeight.Bold,
+                color = Color.White
+            )
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Text(
+            text = "Aucun favori ne correspond à \"$searchQuery\"",
+            style = MaterialTheme.typography.bodyMedium,
+            color = Color.White.copy(alpha = 0.6f),
+            textAlign = TextAlign.Center
+        )
     }
 }
 
@@ -278,87 +472,264 @@ fun FavoritesHeader(trackCount: Int) {
 @Composable
 fun FavoriteTrackItem(
     track: Track,
+    isCurrentlyPlaying: Boolean,
     onClick: () -> Unit,
     onRemoveFavorite: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var showRemoveDialog by remember { mutableStateOf(false) }
+    val infiniteTransition = rememberInfiniteTransition(label = "track_pulse")
+    val pulseAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.3f,
+        targetValue = 0.6f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(800, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "pulse_alpha"
+    )
 
-    Card(
+    Surface(
         onClick = onClick,
-        modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
-        )
+        shape = RoundedCornerShape(12.dp),
+        color = if (isCurrentlyPlaying)
+            SPECTRUM_COLORS[1].copy(alpha = 0.15f)
+        else
+            Color(0xFF1A1A1A),
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp)
     ) {
-        Row(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(16.dp)
+                .padding(12.dp)
         ) {
-            Box(
-                modifier = Modifier.size(48.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    Icons.Default.MusicNote,
-                    contentDescription = null,
-                    modifier = Modifier.size(32.dp),
-                    tint = MaterialTheme.colorScheme.primary
-                )
-            }
-
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
+            // Ligne 1 : Titre + Icône favoris
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
                     text = track.title,
-                    style = MaterialTheme.typography.titleMedium,
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = if (isCurrentlyPlaying) FontWeight.Bold else FontWeight.Medium,
+                        color = if (isCurrentlyPlaying) SPECTRUM_COLORS[1] else Color.White,
+                        fontSize = 16.sp
+                    ),
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
                 )
-                Text(
-                    text = "${track.artist} • ${track.album}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+
+                // Icône favoris (toujours remplie)
+                Icon(
+                    Icons.Default.Favorite,
+                    contentDescription = "Retirer des favoris",
+                    tint = SPECTRUM_COLORS[1],
+                    modifier = Modifier
+                        .size(20.dp)
+                        .clickable { onRemoveFavorite() }
                 )
             }
 
-            IconButton(onClick = { showRemoveDialog = true }) {
-                Icon(
-                    Icons.Default.Favorite,
-                    contentDescription = "Remove from favorites",
-                    tint = Color.Red
+            Spacer(modifier = Modifier.height(4.dp))
+
+            // Ligne 2 : Artiste - Album + Menu
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "${track.artist} - ${track.album}",
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        fontSize = 14.sp,
+                        color = Color.White.copy(alpha = 0.6f)
+                    ),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
                 )
+
+                // Menu (3 points)
+                Icon(
+                    Icons.Default.MoreVert,
+                    contentDescription = "Plus d'options",
+                    tint = Color.White.copy(alpha = 0.5f),
+                    modifier = Modifier
+                        .size(18.dp)
+                        .clickable { onRemoveFavorite() }
+                )
+            }
+
+            // Indicateur de lecture en cours
+            if (isCurrentlyPlaying) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(4.dp)
+                            .clip(CircleShape)
+                            .background(SPECTRUM_COLORS[1].copy(alpha = pulseAlpha))
+                    )
+                    Text(
+                        text = "EN COURS",
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontSize = 10.sp,
+                            color = SPECTRUM_COLORS[1].copy(alpha = 0.8f)
+                        )
+                    )
+                }
             }
         }
     }
+}
 
-    if (showRemoveDialog) {
-        AlertDialog(
-            onDismissRequest = { showRemoveDialog = false },
-            title = { Text("Retirer des favoris") },
-            text = { Text("Voulez-vous retirer \"${track.title}\" de vos favoris ?") },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        onRemoveFavorite()
-                        showRemoveDialog = false
-                    }
-                ) {
-                    Text("Retirer", color = MaterialTheme.colorScheme.error)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showRemoveDialog = false }) {
-                    Text("Annuler")
+@Composable
+private fun PlayAllFAB(
+    onClick: () -> Unit
+) {
+    val infiniteTransition = rememberInfiniteTransition(label = "fab_pulse")
+    val scale by infiniteTransition.animateFloat(
+        initialValue = 1f,
+        targetValue = 1.05f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1000, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "fab_scale"
+    )
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        contentAlignment = Alignment.BottomEnd
+    ) {
+        FloatingActionButton(
+            onClick = onClick,
+            containerColor = SPECTRUM_COLORS[1],
+            contentColor = Color.White,
+            modifier = Modifier
+                .size(64.dp)
+                .scale(scale),
+            shape = CircleShape,
+            elevation = FloatingActionButtonDefaults.elevation(8.dp)
+        ) {
+            Icon(
+                Icons.Default.PlayArrow,
+                contentDescription = "Tout jouer",
+                modifier = Modifier.size(32.dp)
+            )
+        }
+    }
+}
+
+@Composable
+private fun ModernRemoveFavoriteDialog(
+    track: Track,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        shape = RoundedCornerShape(24.dp),
+        containerColor = Color(0xFF1A1A1A),
+        titleContentColor = Color.White,
+        textContentColor = Color.White,
+        icon = {
+            Surface(
+                shape = CircleShape,
+                color = SPECTRUM_COLORS[1].copy(alpha = 0.15f),
+                modifier = Modifier.size(48.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        Icons.Default.Favorite,
+                        contentDescription = null,
+                        tint = SPECTRUM_COLORS[1],
+                        modifier = Modifier.size(24.dp)
+                    )
                 }
             }
-        )
-    }
+        },
+        title = {
+            Text(
+                "Retirer des favoris ?",
+                style = MaterialTheme.typography.titleLarge.copy(
+                    fontWeight = FontWeight.Bold
+                )
+            )
+        },
+        text = {
+            Column {
+                Text(
+                    "Le morceau suivant sera retiré :",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color.White.copy(alpha = 0.8f),
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color.White.copy(alpha = 0.05f),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(12.dp)
+                    ) {
+                        Text(
+                            text = track.title,
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            ),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            text = track.artist,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = Color.White.copy(alpha = 0.7f),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = onConfirm,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = SPECTRUM_COLORS[1]
+                ),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    "Retirer",
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.Bold
+                    )
+                )
+            }
+        },
+        dismissButton = {
+            TextButton(
+                onClick = onDismiss,
+                colors = ButtonDefaults.textButtonColors(
+                    contentColor = Color.White.copy(alpha = 0.7f)
+                ),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Annuler")
+            }
+        }
+    )
 }

@@ -40,12 +40,11 @@ import com.example.sonicflow.presentation.components.AlbumArtwork
 import kotlinx.coroutines.delay
 import kotlin.math.sin
 
-// 🎨 PALETTE MODERNE - GRADIENTS DYNAMIQUES (cohérent avec HomeScreen)
 private val GRADIENT_COLORS = listOf(
-    Color(0xFF6366F1),  // Indigo
-    Color(0xFF8B5CF6),  // Violet
-    Color(0xFFEC4899),  // Rose
-    Color(0xFFF97316)   // Orange
+    Color(0xFF6366F1),
+    Color(0xFF8B5CF6),
+    Color(0xFFEC4899),
+    Color(0xFFF97316)
 )
 
 private val ACCENT_COLORS = listOf(
@@ -67,6 +66,8 @@ fun LibraryContent(
     onTrackClick: (Track) -> Unit,
     onAlbumClick: (albumName: String, artistName: String) -> Unit,
     onArtistClick: (artistName: String) -> Unit,
+    onFavoritesClick: () -> Unit,
+    onRecentlyPlayedClick: () -> Unit,
     isSearchActive: Boolean,
     onSearchActiveChange: (Boolean) -> Unit
 ) {
@@ -75,6 +76,7 @@ fun LibraryContent(
     val error by viewModel.error.collectAsState()
     val playlists by viewModel.playlists.collectAsState()
     val currentPlayingTrack by viewModel.currentPlayingTrack.collectAsState()
+    val favoriteTracks by viewModel.favoriteTracks.collectAsState()  // ✅ NOUVEAU
 
     var searchQuery by remember { mutableStateOf("") }
     val focusRequester = remember { FocusRequester() }
@@ -157,6 +159,71 @@ fun LibraryContent(
                             ),
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
+                            // ✅ SECTION QUICK ACCESS - FAVORIS & RECENTLY PLAYED
+                            item {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 8.dp),
+                                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    // Titre de section
+                                    Text(
+                                        text = "Accès rapide",
+                                        style = MaterialTheme.typography.titleLarge.copy(
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color.White
+                                        ),
+                                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 8.dp)
+                                    )
+
+                                    // Row avec les 2 cartes
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                    ) {
+                                        // Carte Favoris
+                                        QuickAccessCard(
+                                            title = "Favoris",
+                                            icon = Icons.Default.Favorite,
+                                            gradient = listOf(
+                                                Color(0xFFE94560),  // Rouge/Rose
+                                                Color(0xFFD946EF)   // Magenta
+                                            ),
+                                            count = favoriteTracks.size,
+                                            onClick = onFavoritesClick,
+                                            modifier = Modifier.weight(1f)
+                                        )
+
+                                        // Carte Recently Played (NOUVEAU)
+                                        QuickAccessCard(
+                                            title = "Récemment",
+                                            subtitle = "joués",
+                                            icon = Icons.Default.History,
+                                            gradient = listOf(
+                                                Color(0xFF8B5CF6),  // Violet
+                                                Color(0xFF6366F1)   // Indigo
+                                            ),
+                                            count = 0,  // TODO: viewModel.recentlyPlayedCount
+                                            onClick = onRecentlyPlayedClick,
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                    }
+                                }
+                            }
+
+                            // Titre de section
+                            item {
+                                Text(
+                                    text = "Tous les morceaux",
+                                    style = MaterialTheme.typography.titleLarge.copy(
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.White
+                                    ),
+                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 16.dp)
+                                )
+                            }
+
                             items(
                                 items = tracks,
                                 key = { track -> track.id }
@@ -1145,4 +1212,112 @@ private fun formatDuration(millis: Long): String {
     val minutes = seconds / 60
     val secs = seconds % 60
     return String.format("%d:%02d", minutes, secs)
+}
+
+// ════════════════════════════════════════════════════════════════
+// ✅ NOUVEAU COMPOSANT : QuickAccessCard
+// ════════════════════════════════════════════════════════════════
+@Composable
+private fun QuickAccessCard(
+    title: String,
+    subtitle: String? = null,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    gradient: List<Color>,
+    count: Int,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(20.dp),
+        color = Color.Transparent,
+        modifier = modifier.height(140.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    brush = Brush.linearGradient(
+                        colors = gradient,
+                        start = Offset(0f, 0f),
+                        end = Offset(1000f, 1000f)
+                    )
+                )
+                .padding(16.dp)
+        ) {
+            Column(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.SpaceBetween
+            ) {
+                // Icône en haut
+                Surface(
+                    shape = CircleShape,
+                    color = Color.White.copy(alpha = 0.25f),
+                    modifier = Modifier.size(52.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            icon,
+                            contentDescription = title,
+                            tint = Color.White,
+                            modifier = Modifier.size(28.dp)
+                        )
+                    }
+                }
+
+                // Texte et compteur en bas
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.Bottom,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(
+                            text = title,
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
+                        )
+                        if (subtitle != null) {
+                            Text(
+                                text = subtitle,
+                                style = MaterialTheme.typography.titleMedium.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White
+                                )
+                            )
+                        }
+                    }
+                    Text(
+                        text = if (count > 0) "$count morceaux" else "Aucun morceau",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.White.copy(alpha = 0.8f)
+                    )
+                }
+            }
+
+            // Badge de compteur en haut à droite (si count > 0)
+            if (count > 0) {
+                Surface(
+                    shape = CircleShape,
+                    color = Color.White.copy(alpha = 0.3f),
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .size(36.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(
+                            text = if (count > 99) "99+" else count.toString(),
+                            style = MaterialTheme.typography.labelMedium.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
+                        )
+                    }
+                }
+            }
+        }
+    }
 }

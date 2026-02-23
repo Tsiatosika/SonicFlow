@@ -24,6 +24,22 @@ class FavoritesViewModel @Inject constructor(
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
+    private val _currentPlayingTrack = MutableStateFlow<Track?>(null)
+    val currentPlayingTrack: StateFlow<Track?> = _currentPlayingTrack.asStateFlow()
+
+    init {
+        loadFavorites()
+        observeCurrentTrack()
+    }
+
+    private fun observeCurrentTrack() {
+        viewModelScope.launch {
+            audioPlayerRepository.getCurrentPlayingTrack().collect { track ->
+                _currentPlayingTrack.value = track
+            }
+        }
+    }
+
     fun loadFavorites() {
         viewModelScope.launch {
             _isLoading.value = true

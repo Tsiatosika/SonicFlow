@@ -44,7 +44,15 @@ fun MiniPlayer(
     val currentTrack by viewModel.currentTrack.collectAsState()
     val playbackState by viewModel.playbackState.collectAsState()
 
-    val shouldShow = currentTrack != null && !hideOnPlayer
+    // 🔥 Déterminer si on doit afficher le MiniPlayer
+    val shouldShow = remember(currentTrack, hideOnPlayer) {
+        currentTrack != null && !hideOnPlayer
+    }
+
+    // 🔥 Log pour debug
+    LaunchedEffect(shouldShow, hideOnPlayer, currentTrack) {
+        android.util.Log.d("MiniPlayer", "shouldShow=$shouldShow, hideOnPlayer=$hideOnPlayer, track=${currentTrack?.title}")
+    }
 
     AnimatedVisibility(
         visible = shouldShow,

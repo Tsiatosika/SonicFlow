@@ -7,6 +7,7 @@ import com.example.sonicflow.data.local.database.AppDatabase
 import com.example.sonicflow.data.local.dao.FavoriteDao
 import com.example.sonicflow.data.local.dao.PlaylistDao
 import com.example.sonicflow.data.local.dao.PlaylistTrackCrossRefDao
+import com.example.sonicflow.data.local.dao.RecentlyPlayedDao
 import com.example.sonicflow.data.local.dao.TrackDao
 import com.example.sonicflow.data.local.dao.WaveformDataDao
 import com.example.sonicflow.data.remote.mediastore.MediaStoreDataSource
@@ -61,6 +62,13 @@ object DataModule {
     @Singleton
     fun provideFavoriteDao(database: AppDatabase): FavoriteDao {
         return database.favoriteDao()
+    }
+
+    // ✅ NOUVEAU : Provider pour RecentlyPlayedDao
+    @Provides
+    @Singleton
+    fun provideRecentlyPlayedDao(database: AppDatabase): RecentlyPlayedDao {
+        return database.recentlyPlayedDao()
     }
 
     @Provides

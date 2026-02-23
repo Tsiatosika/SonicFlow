@@ -10,6 +10,8 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.*
@@ -26,11 +28,15 @@ import com.example.sonicflow.presentation.screen.album.AlbumDetailScreen
 import com.example.sonicflow.presentation.screen.album.AlbumViewModel
 import com.example.sonicflow.presentation.screen.artist.ArtistDetailScreen
 import com.example.sonicflow.presentation.screen.artist.ArtistViewModel
+import com.example.sonicflow.presentation.screen.favorites.FavoritesContent
+import com.example.sonicflow.presentation.screen.favorites.FavoritesViewModel
 import com.example.sonicflow.presentation.screen.home.HomeScreen
 import com.example.sonicflow.presentation.screen.library.LibraryViewModel
 import com.example.sonicflow.presentation.screen.player.MiniPlayer
 import com.example.sonicflow.presentation.screen.player.PlayerScreen
 import com.example.sonicflow.presentation.screen.playlist.PlaylistDetailScreen
+import com.example.sonicflow.presentation.screen.recentlyplayed.RecentlyPlayedScreen
+import com.example.sonicflow.presentation.screen.recentlyplayed.RecentlyPlayedViewModel
 import com.example.sonicflow.presentation.theme.SonicFlowTheme
 import dagger.hilt.android.AndroidEntryPoint
 import java.net.URLDecoder
@@ -39,7 +45,6 @@ import java.net.URLEncoder
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
-    // ✅ Variable pour tracker si on doit recharger après permission
     private var shouldReloadAfterPermission = false
 
     private val requestPermissionLauncher = registerForActivityResult(
@@ -49,7 +54,6 @@ class MainActivity : ComponentActivity() {
             android.util.Log.d("MainActivity", "✅ Permission accordée")
             Toast.makeText(this, "Permission accordée - Chargement...", Toast.LENGTH_SHORT).show()
             shouldReloadAfterPermission = true
-            // 🔥 FORCER LE RECHARGEMENT COMPLET
             recreate()
         } else {
             android.util.Log.e("MainActivity", "❌ Permission refusée")
@@ -119,11 +123,16 @@ fun SonicFlowApp(hasPermission: Boolean) {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AppNavigation(hasPermission: Boolean) {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route ?: ""
+
+    val isPlayerScreen = remember(currentRoute) {
+        currentRoute.startsWith(Screen.Player.route)
+    }
 
     Column(modifier = Modifier.fillMaxSize()) {
         NavHost(
@@ -131,11 +140,12 @@ fun AppNavigation(hasPermission: Boolean) {
             startDestination = Screen.Home.route,
             modifier = Modifier.weight(1f)
         ) {
+            // ========================================================================
             // HOME avec 5 onglets
+            // ========================================================================
             composable(Screen.Home.route) {
                 val libraryViewModel: LibraryViewModel = hiltViewModel()
 
-                // 🔥 FORCER LE CHARGEMENT DES TRACKS SI ON A LA PERMISSION
                 LaunchedEffect(hasPermission) {
                     if (hasPermission) {
                         android.util.Log.d("AppNavigation", "🔄 Loading tracks with permission")
@@ -161,11 +171,19 @@ fun AppNavigation(hasPermission: Boolean) {
                         val encodedAlbum = URLEncoder.encode(albumName, "UTF-8")
                         val encodedArtist = URLEncoder.encode(artistName, "UTF-8")
                         navController.navigate("${Screen.AlbumDetail.route}/$encodedAlbum/$encodedArtist")
+                    },
+                    onFavoritesClick = {
+                        navController.navigate(Screen.Favorites.route)
+                    },
+                    onRecentlyPlayedClick = {
+                        navController.navigate(Screen.RecentlyPlayed.route)
                     }
                 )
             }
 
-            // ALBUM DETAIL - Reçoit albumName + artistName
+            // ========================================================================
+            // ALBUM DETAIL
+            // ========================================================================
             composable(
                 route = "${Screen.AlbumDetail.route}/{albumName}/{artistName}",
                 arguments = listOf(
@@ -192,7 +210,9 @@ fun AppNavigation(hasPermission: Boolean) {
                 )
             }
 
-            // ARTIST DETAIL - Reçoit artistName
+            // ========================================================================
+            // ARTIST DETAIL
+            // ========================================================================
             composable(
                 route = "${Screen.ArtistDetail.route}/{artistName}",
                 arguments = listOf(
@@ -214,7 +234,9 @@ fun AppNavigation(hasPermission: Boolean) {
                 )
             }
 
+            // ========================================================================
             // PLAYLIST DETAIL
+            // ========================================================================
             composable(
                 route = "${Screen.PlaylistDetail.route}/{playlistId}",
                 arguments = listOf(
@@ -231,7 +253,52 @@ fun AppNavigation(hasPermission: Boolean) {
                 )
             }
 
-            // PLAYER PLEIN ÉCRAN
+            composable(Screen.Favorites.route) {
+                val favoritesViewModel: FavoritesViewModel = hiltViewModel()
+                val libraryViewModel: LibraryViewModel = hiltViewModel()
+
+                // Page Favoris en plein écran avec TopBar
+                Column(modifier = Modifier.fillMaxSize()) {
+                    // TopBar simple avec bouton retour
+                    androidx.compose.material3.TopAppBar(
+                        title = { androidx.compose.material3.Text("Mes Favoris") },
+                        navigationIcon = {
+                            androidx.compose.material3.IconButton(onClick = { navController.navigateUp() }) {
+                                androidx.compose.material3.Icon(
+                                    androidx.compose.material.icons.Icons.Default.ArrowBack,
+                                    contentDescription = "Retour"
+                                )
+                            }
+                        }
+                    )
+
+                    // Contenu des favoris
+                    FavoritesContent(
+                        viewModel = favoritesViewModel,
+                        onTrackClick = { track ->
+                            libraryViewModel.playTrackFromList(track)
+                            navController.navigate("${Screen.Player.route}/${track.id}")
+                        },
+                        isSearchActive = false,
+                        onSearchActiveChange = {}
+                    )
+                }
+            }
+
+
+            composable(Screen.RecentlyPlayed.route) {
+                val recentlyPlayedViewModel: RecentlyPlayedViewModel = hiltViewModel()
+                val libraryViewModel: LibraryViewModel = hiltViewModel()
+
+                RecentlyPlayedScreen(
+                    onBackClick = { navController.navigateUp() },
+                    onTrackClick = { track ->
+                        libraryViewModel.playTrackFromList(track)
+                        navController.navigate("${Screen.Player.route}/${track.id}")
+                    },
+                    viewModel = recentlyPlayedViewModel
+                )
+            }
             composable("${Screen.Player.route}/{trackId}") { backStackEntry ->
                 val trackId = backStackEntry.arguments?.getString("trackId")?.toLongOrNull()
                 PlayerScreen(
@@ -241,12 +308,11 @@ fun AppNavigation(hasPermission: Boolean) {
             }
         }
 
-        // MINIPLAYER - Toujours rendu
         MiniPlayer(
             onPlayerClick = {
                 navController.navigate("${Screen.Player.route}/0")
             },
-            hideOnPlayer = currentRoute.startsWith(Screen.Player.route)
+            hideOnPlayer = isPlayerScreen
         )
     }
 }
@@ -256,5 +322,7 @@ sealed class Screen(val route: String) {
     object AlbumDetail : Screen("album_detail")
     object ArtistDetail : Screen("artist_detail")
     object PlaylistDetail : Screen("playlist_detail")
+    object Favorites : Screen("favorites")
+    object RecentlyPlayed : Screen("recently_played")
     object Player : Screen("player")
 }

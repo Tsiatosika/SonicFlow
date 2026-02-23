@@ -5,17 +5,20 @@ import androidx.media3.common.util.UnstableApi
 import com.example.sonicflow.data.local.dao.FavoriteDao
 import com.example.sonicflow.data.local.dao.PlaylistDao
 import com.example.sonicflow.data.local.dao.PlaylistTrackCrossRefDao
+import com.example.sonicflow.data.local.dao.RecentlyPlayedDao
 import com.example.sonicflow.data.local.dao.TrackDao
 import com.example.sonicflow.data.local.dao.WaveformDataDao
 import com.example.sonicflow.data.remote.mediastore.MediaStoreDataSource
 import com.example.sonicflow.data.repository.AudioPlayerRepositoryImpl
 import com.example.sonicflow.data.repository.FavoriteRepositoryImpl
 import com.example.sonicflow.data.repository.PlaylistRepositoryImpl
+import com.example.sonicflow.data.repository.RecentlyPlayedRepositoryImpl
 import com.example.sonicflow.data.repository.TrackRepositoryImpl
 import com.example.sonicflow.data.repository.WaveformRepositoryImpl
 import com.example.sonicflow.domain.repository.AudioPlayerRepository
 import com.example.sonicflow.domain.repository.FavoriteRepository
 import com.example.sonicflow.domain.repository.PlaylistRepository
+import com.example.sonicflow.domain.repository.RecentlyPlayedRepository
 import com.example.sonicflow.domain.repository.TrackRepository
 import com.example.sonicflow.domain.repository.WaveformRepository
 import com.example.sonicflow.service.AudioPlayerServiceConnection
@@ -67,6 +70,16 @@ object RepositoryModule {
         return WaveformRepositoryImpl(waveformDataDao, trackDao, context)
     }
 
+    // ✅ NOUVEAU : Provider pour RecentlyPlayedRepository
+    @Provides
+    @Singleton
+    fun provideRecentlyPlayedRepository(
+        recentlyPlayedDao: RecentlyPlayedDao,
+        trackDao: TrackDao
+    ): RecentlyPlayedRepository {
+        return RecentlyPlayedRepositoryImpl(recentlyPlayedDao, trackDao)
+    }
+
     @UnstableApi
     @Provides
     @Singleton
@@ -82,8 +95,9 @@ object RepositoryModule {
     @Provides
     @Singleton
     fun provideAudioPlayerRepository(
-        serviceConnection: AudioPlayerServiceConnection
+        serviceConnection: AudioPlayerServiceConnection,
+        recentlyPlayedRepository: RecentlyPlayedRepository
     ): AudioPlayerRepository {
-        return AudioPlayerRepositoryImpl(serviceConnection)
+        return AudioPlayerRepositoryImpl(serviceConnection, recentlyPlayedRepository)
     }
 }

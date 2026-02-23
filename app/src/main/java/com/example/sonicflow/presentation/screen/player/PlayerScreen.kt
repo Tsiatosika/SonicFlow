@@ -87,6 +87,7 @@ fun PlayerScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
+            // 🎵 Album Art
             GlassAlbumArt(
                 isPlaying = playbackState.isPlaying,
                 albumArtUri = currentTrack?.albumArtUri,
@@ -95,21 +96,22 @@ fun PlayerScreen(
                     .padding(horizontal = 40.dp)
             )
 
-            Spacer(modifier = Modifier.height(40.dp))
+            Spacer(modifier = Modifier.height(32.dp))
 
-            // Track info
+            // 🎤 Track info
             ModernTrackInfo(
                 title = currentTrack?.title ?: "No track",
                 artist = currentTrack?.artist ?: "Unknown"
             )
 
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(24.dp))
 
+            // 🌊 Waveform
             if (waveformData != null) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(80.dp)
+                        .height(70.dp)
                         .padding(horizontal = 24.dp)
                 ) {
                     WaveformVisualizer(
@@ -120,20 +122,19 @@ fun PlayerScreen(
                         modifier = Modifier.fillMaxSize()
                     )
                 }
+                Spacer(modifier = Modifier.height(16.dp))
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // Progress bar
+            // 📊 Progress bar
             ModernProgressBar(
                 currentPosition = playbackState.currentPosition,
                 duration = playbackState.duration,
                 onSeek = { viewModel.seekTo(it) }
             )
 
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(24.dp))
 
-            // Control buttons
+            // 🎛️ Control buttons - REMONTÉS
             ModernControlButtons(
                 isPlaying = playbackState.isPlaying,
                 isShuffleEnabled = isShuffleEnabled,
@@ -145,7 +146,7 @@ fun PlayerScreen(
                 onRepeatClick = { viewModel.toggleRepeatMode() }
             )
 
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.weight(1f))
         }
     }
 }
@@ -241,7 +242,7 @@ private fun ModernTopBar(
                 Icon(
                     if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
                     contentDescription = "Favorite",
-                    tint = if (isFavorite) Color(0xFFFF6B9D) else Color.White,
+                    tint = if (isFavorite) Color(0xFFE94560) else Color.White,
                     modifier = Modifier.size(24.dp)
                 )
             }
@@ -255,7 +256,8 @@ private fun GlassAlbumArt(
     albumArtUri: Uri?,
     modifier: Modifier = Modifier
 ) {
-    val infiniteTransition = rememberInfiniteTransition(label = "vinyl")
+    val infiniteTransition = rememberInfiniteTransition(label = "albumRotation")
+
     val rotation by infiniteTransition.animateFloat(
         initialValue = 0f,
         targetValue = 360f,
@@ -266,20 +268,21 @@ private fun GlassAlbumArt(
         label = "rotation"
     )
 
+    val scale by animateFloatAsState(
+        targetValue = if (isPlaying) 1f else 0.95f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMedium
+        ),
+        label = "scale"
+    )
+
     Box(
-        modifier = modifier.aspectRatio(1f),
+        modifier = modifier
+            .aspectRatio(1f)
+            .scale(scale),
         contentAlignment = Alignment.Center
     ) {
-        // Glow effect
-        Surface(
-            shape = CircleShape,
-            color = Color.White.copy(alpha = 0.05f),
-            modifier = Modifier
-                .fillMaxSize(1.2f)
-                .blur(40.dp)
-        ) {}
-
-        // Glass circle background
         Surface(
             shape = CircleShape,
             color = Color.White.copy(alpha = 0.15f),
@@ -295,7 +298,7 @@ private fun GlassAlbumArt(
                 albumArtUri = albumArtUri,
                 modifier = Modifier.fillMaxSize(),
                 size = 280.dp,
-                cornerRadius = 140.dp,  // Circulaire
+                cornerRadius = 140.dp,
                 iconSize = 140.dp,
                 gradientColors = listOf(
                     Color.White.copy(alpha = 0.3f),
@@ -327,7 +330,7 @@ private fun ModernTrackInfo(
             text = title,
             style = MaterialTheme.typography.headlineMedium.copy(
                 fontWeight = FontWeight.Bold,
-                fontSize = 28.sp,
+                fontSize = 26.sp,
                 color = Color.White
             ),
             maxLines = 2,
@@ -335,12 +338,12 @@ private fun ModernTrackInfo(
             textAlign = TextAlign.Center
         )
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(6.dp))
 
         Text(
             text = artist,
             style = MaterialTheme.typography.titleMedium.copy(
-                fontSize = 18.sp,
+                fontSize = 17.sp,
                 color = Color.White.copy(alpha = 0.8f)
             ),
             maxLines = 1,
@@ -396,12 +399,14 @@ private fun ModernProgressBar(
             Text(
                 text = formatTime(sliderPosition.toLong()),
                 style = MaterialTheme.typography.bodySmall,
-                color = Color.White.copy(alpha = 0.7f)
+                color = Color.White.copy(alpha = 0.7f),
+                fontSize = 13.sp
             )
             Text(
                 text = formatTime(duration),
                 style = MaterialTheme.typography.bodySmall,
-                color = Color.White.copy(alpha = 0.7f)
+                color = Color.White.copy(alpha = 0.7f),
+                fontSize = 13.sp
             )
         }
     }
@@ -421,20 +426,20 @@ private fun ModernControlButtons(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 24.dp),
+            .padding(horizontal = 20.dp),
         horizontalArrangement = Arrangement.SpaceEvenly,
         verticalAlignment = Alignment.CenterVertically
     ) {
         // Shuffle
         IconButton(
             onClick = onShuffleClick,
-            modifier = Modifier.size(48.dp)
+            modifier = Modifier.size(44.dp)
         ) {
             Icon(
                 Icons.Default.Shuffle,
                 contentDescription = "Shuffle",
                 tint = if (isShuffleEnabled) Color.White else Color.White.copy(alpha = 0.5f),
-                modifier = Modifier.size(24.dp)
+                modifier = Modifier.size(22.dp)
             )
         }
 
@@ -443,21 +448,21 @@ private fun ModernControlButtons(
             onClick = onPreviousClick,
             shape = CircleShape,
             color = Color.White.copy(alpha = 0.15f),
-            modifier = Modifier.size(64.dp)
+            modifier = Modifier.size(60.dp)
         ) {
             Box(contentAlignment = Alignment.Center) {
                 Icon(
                     Icons.Default.SkipPrevious,
                     contentDescription = "Previous",
                     tint = Color.White,
-                    modifier = Modifier.size(32.dp)
+                    modifier = Modifier.size(30.dp)
                 )
             }
         }
 
-        // Play/Pause
+        // Play/Pause - PLUS GROS
         val scale by animateFloatAsState(
-            targetValue = if (isPlaying) 1.1f else 1f,
+            targetValue = if (isPlaying) 1.05f else 1f,
             animationSpec = spring(
                 dampingRatio = Spring.DampingRatioMediumBouncy,
                 stiffness = Spring.StiffnessLow
@@ -470,7 +475,7 @@ private fun ModernControlButtons(
             shape = CircleShape,
             color = Color.White,
             modifier = Modifier
-                .size(80.dp)
+                .size(76.dp)
                 .scale(scale)
         ) {
             Box(contentAlignment = Alignment.Center) {
@@ -478,7 +483,7 @@ private fun ModernControlButtons(
                     if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
                     contentDescription = if (isPlaying) "Pause" else "Play",
                     tint = gradientColors[0],
-                    modifier = Modifier.size(40.dp)
+                    modifier = Modifier.size(38.dp)
                 )
             }
         }
@@ -488,14 +493,14 @@ private fun ModernControlButtons(
             onClick = onNextClick,
             shape = CircleShape,
             color = Color.White.copy(alpha = 0.15f),
-            modifier = Modifier.size(64.dp)
+            modifier = Modifier.size(60.dp)
         ) {
             Box(contentAlignment = Alignment.Center) {
                 Icon(
                     Icons.Default.SkipNext,
                     contentDescription = "Next",
                     tint = Color.White,
-                    modifier = Modifier.size(32.dp)
+                    modifier = Modifier.size(30.dp)
                 )
             }
         }
@@ -503,7 +508,7 @@ private fun ModernControlButtons(
         // Repeat
         IconButton(
             onClick = onRepeatClick,
-            modifier = Modifier.size(48.dp)
+            modifier = Modifier.size(44.dp)
         ) {
             Icon(
                 when (repeatMode) {
@@ -512,7 +517,7 @@ private fun ModernControlButtons(
                 },
                 contentDescription = "Repeat",
                 tint = if (repeatMode != Player.REPEAT_MODE_OFF) Color.White else Color.White.copy(alpha = 0.5f),
-                modifier = Modifier.size(24.dp)
+                modifier = Modifier.size(22.dp)
             )
         }
     }

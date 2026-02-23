@@ -17,5 +17,8 @@ data class TrackEntity(
     val size: Long,
     val dateAdded: Long,
     val displayName: String,
-    val mimeType: String
+    val mimeType: String,
+    val year: Int = 0,
+    val trackNumber: Int = 0,
+    val bitrate: Int = 0
 )
