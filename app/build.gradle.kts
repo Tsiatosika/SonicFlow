@@ -62,18 +62,22 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
 
-    // Compose BOM
-    implementation(platform(libs.androidx.compose.bom))
+    // ✅ FIX : BOM épinglé à 2024.02.00 — compatible compileSdk 34 / AGP 8.2.2
+    // (évite Compose 1.8+/1.9+ qui requiert SDK 35)
+    implementation(platform("androidx.compose:compose-bom:2024.02.00"))
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.ui.tooling.preview)
+
+    // ✅ FIX : une seule déclaration material3 (suppression du doublon .android)
+    // libs.androidx.compose.material3.android était en doublon avec libs.androidx.compose.material3
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.compose.material.icons.extended)
 
     // Navigation
     implementation(libs.androidx.navigation.compose)
 
-    // Hilt avec KSP
+    // Hilt
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
     implementation(libs.androidx.hilt.navigation.compose)
@@ -81,7 +85,7 @@ dependencies {
     // Media
     implementation(libs.androidx.media)
 
-    // Room avec KSP
+    // Room
     implementation(libs.room.runtime)
     implementation(libs.room.ktx)
     ksp(libs.room.compiler)
@@ -94,22 +98,21 @@ dependencies {
     // Gson
     implementation(libs.gson)
 
+    // Coil
+    implementation("io.coil-kt:coil-compose:2.5.0")
+
     // Tests
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.test.ext.junit)
     androidTestImplementation(libs.androidx.espresso.core)
 
     // Compose Tests
-    androidTestImplementation(platform(libs.androidx.compose.bom))
+    androidTestImplementation(platform("androidx.compose:compose-bom:2024.02.00"))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
 
     // Debug
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
-
-    //Coil
-    implementation("io.coil-kt:coil-compose:2.5.0")
-
 }
 
 ksp {

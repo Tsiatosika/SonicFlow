@@ -18,6 +18,7 @@ room = "2.6.1"
 media3 = "1.2.0"
 gson = "2.10.1"
 ksp = "1.9.20-1.0.14"
+material3-android = "1.4.0"
 
 [libraries]
 # Core
@@ -66,6 +67,7 @@ androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-co
 androidx-compose-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit4" }
 androidx-compose-ui-test-manifest = { group = "androidx.compose.ui", name = "ui-test-manifest" }
 androidx-compose-ui-tooling = { group = "androidx.compose.ui", name = "ui-tooling" }
+androidx-compose-material3-android = { group = "androidx.compose.material3", name = "material3-android", version.ref = "material3-android" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

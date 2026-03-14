@@ -29,6 +29,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.sonicflow.domain.model.Track
 import com.example.sonicflow.presentation.components.ModernTrackItem
 import kotlin.math.absoluteValue
+import kotlin.math.sin
 
 private val WAVEFORM_CYAN = Color(0xFF00D9FF)
 private val WAVEFORM_MAGENTA = Color(0xFF9D00FF)
@@ -52,17 +53,20 @@ fun PlaylistDetailScreen(
 ) {
     val playlist by viewModel.currentPlaylist.collectAsState()
     val tracks by viewModel.playlistTracks.collectAsState()
+    val allTracks by viewModel.allTracks.collectAsState()  // ✅ AJOUT
     val isLoading by viewModel.isLoading.collectAsState()
     val currentPlayingTrack by viewModel.currentPlayingTrack.collectAsState()
 
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showRenameDialog by remember { mutableStateOf(false) }
+    var showAddTracksDialog by remember { mutableStateOf(false) }  // ✅ AJOUT
     var newName by remember { mutableStateOf("") }
     var selectedTrack by remember { mutableStateOf<Track?>(null) }
     var showRemoveTrackDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(playlistId) {
         viewModel.loadPlaylist(playlistId)
+        viewModel.loadAllTracks()  // ✅ AJOUT
     }
 
     // Animation pour le FAB
@@ -87,7 +91,6 @@ fun PlaylistDetailScreen(
         label = "fab_alpha"
     )
 
-    // Gradient basé sur l'ID de la playlist
     val gradientIndex = (playlistId % playlistGradients.size).toInt().absoluteValue
     val gradient = playlistGradients[gradientIndex]
 
@@ -118,6 +121,30 @@ fun PlaylistDetailScreen(
                     }
                 },
                 actions = {
+                    // ✅ NOUVEAU: Bouton Ajouter des morceaux
+                    IconButton(
+                        onClick = { showAddTracksDialog = true },
+                        modifier = Modifier
+                            .clip(CircleShape)
+                            .background(
+                                Brush.horizontalGradient(
+                                    colors = listOf(
+                                        Color(0xFF10B981).copy(alpha = 0.2f),
+                                        Color(0xFF06B6D4).copy(alpha = 0.2f)
+                                    )
+                                )
+                            )
+                            .padding(4.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Add,
+                            contentDescription = "Add tracks",
+                            tint = Color(0xFF10B981)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.width(8.dp))
+
                     // Bouton Renommer avec style waveform
                     IconButton(
                         onClick = {
@@ -189,9 +216,8 @@ fun PlaylistDetailScreen(
                                     gradient[1].copy(alpha = 0.1f * fabAlpha),
                                     Color.Transparent,
                                 )
-                        ),
-                        //radius = size().minDimension / 2 * fabScale,
-                     //   center = Offset(size().width() / 2, size.height / 2)
+                            ),
+                            radius = size.minDimension / 2 * fabScale
                         )
                     }
 
@@ -215,77 +241,45 @@ fun PlaylistDetailScreen(
                 }
             }
         },
-        floatingActionButtonPosition = FabPosition.End
+        containerColor = MaterialTheme.colorScheme.background
     ) { paddingValues ->
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            // Background gradient animé
-            AnimatedBackground(gradient = gradient)
-
             when {
                 isLoading -> {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            CircularProgressIndicator(
-                                color = gradient[0],
-                                strokeWidth = 3.dp,
-                                modifier = Modifier.size(48.dp)
-                            )
-                            Spacer(modifier = Modifier.height(16.dp))
-                            Text(
-                                "Chargement de la playlist...",
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-                            )
-                        }
-                    }
+                    LoadingState(gradient)
                 }
                 playlist == null -> {
                     ErrorState(
                         error = "Playlist introuvable",
-                        onRetry = { viewModel.loadPlaylist(playlistId) },
-                        gradient = gradient
+                        gradient = gradient,
+                        onRetry = { viewModel.loadPlaylist(playlistId) }
                     )
                 }
                 tracks.isEmpty() -> {
-                    EmptyPlaylistDetail(gradient = gradient)
+                    EmptyPlaylistState(
+                        gradient = gradient,
+                        onAddTracks = { showAddTracksDialog = true }  // ✅ AJOUT
+                    )
                 }
                 else -> {
                     LazyColumn(
-                        modifier = Modifier.fillMaxSize()
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(bottom = 100.dp)
                     ) {
-                        // Header avec gradient
+                        // Header avec waveform animée
                         item {
-                            PlaylistHeader(
+                            PlaylistWaveformHeader(
                                 playlistName = playlist!!.name,
                                 trackCount = tracks.size,
                                 gradient = gradient
                             )
                         }
 
-                        // Stats rapides
-                        item {
-                            QuickStats(
-                                trackCount = tracks.size,
-                                totalDuration = tracks.sumOf { it.duration },
-                                gradient = gradient
-                            )
-                        }
-
-                        // Titre de section
-                        item {
-                            SectionHeader(
-                                title = "Morceaux",
-                                count = tracks.size,
-                                gradient = gradient
-                            )
-                        }
-
+                        // Liste des morceaux
                         items(tracks, key = { it.id }) { track ->
                             ModernTrackItem(
                                 track = track,
@@ -302,20 +296,32 @@ fun PlaylistDetailScreen(
                                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
                             )
                         }
-
-                        // Spacer pour le FAB
-                        item {
-                            Spacer(modifier = Modifier.height(100.dp))
-                        }
                     }
                 }
             }
         }
 
+        // ✅ NOUVEAU: Dialog d'ajout de morceaux
+        if (showAddTracksDialog) {
+            AddTracksDialog(
+                allTracks = allTracks,
+                existingTrackIds = tracks.map { it.id }.toSet(),
+                gradient = gradient,
+                onDismiss = { showAddTracksDialog = false },
+                onTracksSelected = { selectedTracks ->
+                    selectedTracks.forEach { track ->
+                        viewModel.addTrackToPlaylist(playlistId, track.id)
+                    }
+                    showAddTracksDialog = false
+                }
+            )
+        }
+
+        // Dialog de suppression
         if (showDeleteDialog) {
             ModernAlertDialog(
                 title = "Supprimer la playlist ?",
-                message = "Cette action est irréversible. Tous les morceaux seront retirés.",
+                message = "Cette action est irréversible. Tous les morceaux de cette playlist seront perdus.",
                 confirmText = "Supprimer",
                 dismissText = "Annuler",
                 isDestructive = true,
@@ -329,6 +335,7 @@ fun PlaylistDetailScreen(
             )
         }
 
+        // Dialog de renommage
         if (showRenameDialog) {
             ModernRenameDialog(
                 currentName = newName,
@@ -342,10 +349,10 @@ fun PlaylistDetailScreen(
             )
         }
 
-        // Dialog: Retirer un morceau
+        // Dialog de retrait de morceau
         if (showRemoveTrackDialog && selectedTrack != null) {
             ModernAlertDialog(
-                title = "Retirer de la playlist ?",
+                title = "Retirer ce morceau ?",
                 message = "\"${selectedTrack!!.title}\" sera retiré de cette playlist.",
                 confirmText = "Retirer",
                 dismissText = "Annuler",
@@ -361,141 +368,428 @@ fun PlaylistDetailScreen(
     }
 }
 
+// ============================================================================
+// ✅ NOUVEAU: Dialog d'ajout de morceaux avec design waveform
+// ============================================================================
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun AnimatedBackground(gradient: List<Color>) {
-    val infiniteTransition = rememberInfiniteTransition(label = "background_shift")
+fun AddTracksDialog(
+    allTracks: List<Track>,
+    existingTrackIds: Set<Long>,
+    gradient: List<Color>,
+    onDismiss: () -> Unit,
+    onTracksSelected: (List<Track>) -> Unit
+) {
+    val availableTracks = remember(allTracks, existingTrackIds) {
+        allTracks.filter { it.id !in existingTrackIds }
+    }
 
-    val offsetX by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1000f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(10000, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "offset_x"
-    )
+    var searchQuery by remember { mutableStateOf("") }
+    var selectedTracks by remember { mutableStateOf<Set<Track>>(emptySet()) }
 
-    val offsetY by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1000f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(15000, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "offset_y"
-    )
+    val filteredTracks = remember(availableTracks, searchQuery) {
+        if (searchQuery.isEmpty()) {
+            availableTracks
+        } else {
+            availableTracks.filter {
+                it.title.contains(searchQuery, ignoreCase = true) ||
+                        it.artist.contains(searchQuery, ignoreCase = true) ||
+                        it.album.contains(searchQuery, ignoreCase = true)
+            }
+        }
+    }
 
-    Box(
+    AlertDialog(
+        onDismissRequest = onDismiss,
         modifier = Modifier
-            .fillMaxSize()
-            .background(
-                Brush.linearGradient(
-                    colors = listOf(
-                        gradient[0].copy(alpha = 0.05f),
-                        gradient[1].copy(alpha = 0.05f),
-                        Color.Transparent
+            .fillMaxWidth()
+            .fillMaxHeight(0.85f)
+    ) {
+        Surface(
+            shape = RoundedCornerShape(28.dp),
+            color = MaterialTheme.colorScheme.surface,
+            tonalElevation = 6.dp
+        ) {
+            Column(modifier = Modifier.fillMaxSize()) {
+                // Header avec waveform
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(
+                            Brush.horizontalGradient(
+                                colors = listOf(
+                                    gradient[0].copy(alpha = 0.15f),
+                                    gradient[1].copy(alpha = 0.15f)
+                                )
+                            )
+                        )
+                        .padding(24.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Ajouter des morceaux",
+                                style = MaterialTheme.typography.headlineSmall.copy(
+                                    fontWeight = FontWeight.Bold
+                                ),
+                                color = gradient[0]
+                            )
+                            if (selectedTracks.isNotEmpty()) {
+                                Text(
+                                    text = "${selectedTracks.size} sélectionné${if (selectedTracks.size > 1) "s" else ""}",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = gradient[1]
+                                )
+                            }
+                        }
+                        IconButton(
+                            onClick = onDismiss,
+                            modifier = Modifier
+                                .clip(CircleShape)
+                                .background(gradient[0].copy(alpha = 0.1f))
+                        ) {
+                            Icon(Icons.Default.Close, contentDescription = "Close", tint = gradient[0])
+                        }
+                    }
+                }
+
+                // SearchBar avec style waveform
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    placeholder = { Text("Rechercher...") },
+                    leadingIcon = {
+                        Icon(Icons.Default.Search, contentDescription = null, tint = gradient[0])
+                    },
+                    trailingIcon = {
+                        if (searchQuery.isNotEmpty()) {
+                            IconButton(onClick = { searchQuery = "" }) {
+                                Icon(Icons.Default.Clear, contentDescription = "Clear")
+                            }
+                        }
+                    },
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = gradient[0],
+                        focusedLabelColor = gradient[0],
+                        cursorColor = gradient[0]
                     ),
-                    start = Offset(offsetX, offsetY),
-                    end = Offset(offsetX + 500f, offsetY + 500f)
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp, vertical = 16.dp)
+                )
+
+                // Liste
+                Box(modifier = Modifier.weight(1f)) {
+                    if (filteredTracks.isEmpty()) {
+                        EmptySearchState(
+                            searchQuery = searchQuery,
+                            gradient = gradient
+                        )
+                    } else {
+                        LazyColumn(
+                            contentPadding = PaddingValues(bottom = 16.dp)
+                        ) {
+                            items(filteredTracks, key = { it.id }) { track ->
+                                WaveformSelectableTrackItem(
+                                    track = track,
+                                    isSelected = track in selectedTracks,
+                                    gradient = gradient,
+                                    onToggleSelection = {
+                                        selectedTracks = if (track in selectedTracks) {
+                                            selectedTracks - track
+                                        } else {
+                                            selectedTracks + track
+                                        }
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Boutons d'action
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(24.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = {
+                            selectedTracks = if (selectedTracks.size == filteredTracks.size) {
+                                emptySet()
+                            } else {
+                                filteredTracks.toSet()
+                            }
+                        },
+                        modifier = Modifier.weight(1f),
+                        enabled = filteredTracks.isNotEmpty(),
+                        border = ButtonDefaults.outlinedButtonBorder.copy(
+                            brush = Brush.horizontalGradient(gradient)
+                        ),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Icon(
+                            if (selectedTracks.size == filteredTracks.size) Icons.Default.CheckCircle else Icons.Default.CheckCircleOutline,
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp),
+                            tint = gradient[0]
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            if (selectedTracks.size == filteredTracks.size) "Tout désél." else "Tout sél.",
+                            color = gradient[0]
+                        )
+                    }
+
+                    Button(
+                        onClick = {
+                            if (selectedTracks.isNotEmpty()) {
+                                onTracksSelected(selectedTracks.toList())
+                            }
+                        },
+                        modifier = Modifier.weight(1f),
+                        enabled = selectedTracks.isNotEmpty(),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = gradient[0],
+                            contentColor = Color.White
+                        ),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = null)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Ajouter (${selectedTracks.size})")
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun WaveformSelectableTrackItem(
+    track: Track,
+    isSelected: Boolean,
+    gradient: List<Color>,
+    onToggleSelection: () -> Unit
+) {
+    Card(
+        onClick = onToggleSelection,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp, vertical = 4.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isSelected) {
+                gradient[0].copy(alpha = 0.15f)
+            } else {
+                MaterialTheme.colorScheme.surfaceVariant
+            }
+        ),
+        shape = RoundedCornerShape(16.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Checkbox(
+                checked = isSelected,
+                onCheckedChange = { onToggleSelection() },
+                colors = CheckboxDefaults.colors(
+                    checkedColor = gradient[0],
+                    checkmarkColor = Color.White
                 )
             )
-    )
+
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = if (isSelected) gradient[0].copy(alpha = 0.3f) else MaterialTheme.colorScheme.primary.copy(alpha = 0.2f),
+                modifier = Modifier.size(48.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        Icons.Default.MusicNote,
+                        contentDescription = null,
+                        modifier = Modifier.size(24.dp),
+                        tint = if (isSelected) gradient[0] else MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = track.title,
+                    style = MaterialTheme.typography.titleSmall,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    color = if (isSelected) gradient[0] else MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = "${track.artist} • ${track.album}",
+                    style = MaterialTheme.typography.bodySmall,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
 }
 
 @Composable
-private fun PlaylistHeader(
+private fun EmptySearchState(
+    searchQuery: String,
+    gradient: List<Color>
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Surface(
+            shape = CircleShape,
+            color = gradient[0].copy(alpha = 0.1f),
+            modifier = Modifier.size(80.dp)
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    if (searchQuery.isEmpty()) Icons.Default.MusicNote else Icons.Default.SearchOff,
+                    contentDescription = null,
+                    modifier = Modifier.size(40.dp),
+                    tint = gradient[0]
+                )
+            }
+        }
+        Spacer(modifier = Modifier.height(24.dp))
+        Text(
+            text = if (searchQuery.isEmpty()) {
+                "Tous les morceaux sont\ndéjà dans cette playlist"
+            } else {
+                "Aucun résultat"
+            },
+            style = MaterialTheme.typography.titleMedium,
+            textAlign = TextAlign.Center,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+        )
+    }
+}
+
+// ============================================================================
+// COMPOSANTS UI ORIGINAUX (CONSERVÉS)
+// ============================================================================
+
+@Composable
+private fun PlaylistWaveformHeader(
     playlistName: String,
     trackCount: Int,
     gradient: List<Color>
 ) {
+    // Animation de la waveform
+    val infiniteTransition = rememberInfiniteTransition(label = "waveform")
+    val wavePhase by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(3000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "wave_phase"
+    )
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(260.dp)
+            .height(220.dp)
     ) {
-        // Background gradient avec forme organique
-        Canvas(
+        // Fond avec gradient
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .clip(RoundedCornerShape(bottomStart = 32.dp, bottomEnd = 32.dp))
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            gradient[0].copy(alpha = 0.3f),
+                            gradient[1].copy(alpha = 0.1f),
+                            Color.Transparent
+                        )
+                    )
+                )
+        )
+
+        // Waveform animée
+        Canvas(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(100.dp)
+                .align(Alignment.BottomCenter)
         ) {
             val width = size.width
             val height = size.height
+            val barCount = 40
+            val barWidth = width / barCount
 
-            // Cercle flou 1
-            drawCircle(
-                brush = Brush.radialGradient(
-                    colors = listOf(
-                        gradient[0].copy(alpha = 0.3f),
-                        Color.Transparent
-                    ),
-                    radius = height * 0.8f
-                ),
-                radius = height * 0.8f,
-                center = Offset(width * 0.2f, height * 0.3f)
-            )
-
-            // Cercle flou 2
-            drawCircle(
-                brush = Brush.radialGradient(
-                    colors = listOf(
-                        gradient[1].copy(alpha = 0.25f),
-                        Color.Transparent
-                    ),
-                    radius = height * 0.7f
-                ),
-                radius = height * 0.7f,
-                center = Offset(width * 0.8f, height * 0.6f)
-            )
-
-            // Vagues waveform
-            val barWidth = 4f
-            val barSpacing = 8f
-            for (i in 0..20) {
-                val alpha = 0.1f - (i * 0.005f).coerceIn(0f, 0.1f)
-                val yOffset = kotlin.math.sin(i * 0.5f) * 20f
+            for (i in 0 until barCount) {
+                val normalizedI = i / barCount.toFloat()
+                val barHeight = height * 0.5f * (0.3f + 0.7f * sin((normalizedI * 10f + wavePhase) * 0.05f).absoluteValue)
 
                 drawRoundRect(
-                    color = gradient[0].copy(alpha = alpha),
-                    topLeft = Offset(width - (i * barSpacing) - 20f, height * 0.3f + yOffset),
-                    size = androidx.compose.ui.geometry.Size(barWidth, height * 0.4f),
-                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(barWidth / 2, barWidth / 2)
+                    brush = Brush.verticalGradient(
+                        colors = listOf(
+                            gradient[0].copy(alpha = 0.6f),
+                            gradient[1].copy(alpha = 0.3f)
+                        )
+                    ),
+                    topLeft = Offset(i * barWidth + barWidth * 0.2f, (height - barHeight) / 2),
+                    size = androidx.compose.ui.geometry.Size(barWidth * 0.6f, barHeight),
+                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(2f, 2f)
                 )
             }
         }
 
-        // Content
+        // Contenu
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+            verticalArrangement = Arrangement.Top
         ) {
-            // Icon avec glow effect
-            Box(
-                modifier = Modifier
-                    .size(100.dp)
-                    .clip(CircleShape)
-                    .background(
-                        Brush.radialGradient(
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Icône playlist avec effet glow
+            Box {
+                Canvas(modifier = Modifier.size(90.dp)) {
+                    drawCircle(
+                        brush = Brush.radialGradient(
                             colors = listOf(
                                 gradient[0].copy(alpha = 0.3f),
                                 Color.Transparent
                             )
-                        )
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
+                        ),
+                        radius = size.minDimension / 2
+                    )
+                }
+
                 Surface(
                     shape = CircleShape,
-                    color = gradient[0],
-                    modifier = Modifier.size(80.dp)
+                    color = Color.White.copy(alpha = 0.15f),
+                    modifier = Modifier
+                        .size(80.dp)
+                        .align(Alignment.Center)
                 ) {
-                    Box(
-                        contentAlignment = Alignment.Center,
-                        modifier = Modifier.fillMaxSize()
-                    ) {
+                    Box(contentAlignment = Alignment.Center) {
                         Icon(
                             Icons.Default.PlaylistPlay,
                             contentDescription = null,
@@ -506,68 +800,36 @@ private fun PlaylistHeader(
                 }
             }
 
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
-            // Nom avec gradient
             Text(
                 text = playlistName,
                 style = MaterialTheme.typography.headlineMedium.copy(
                     fontWeight = FontWeight.Bold,
-                    fontSize = 28.sp
+                    fontSize = 24.sp,
+                    color = MaterialTheme.colorScheme.onSurface
                 ),
-                maxLines = 2,
+                maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                textAlign = TextAlign.Center,
-                modifier = Modifier
-                    .background(
-                        Brush.horizontalGradient(
-                            colors = gradient
-                        )
-                    )
-                    .background(
-                        Brush.radialGradient(
-                            colors = listOf(
-                                Color.White.copy(alpha = 0.3f),
-                                Color.Transparent
-                            )
-                        )
-                    )
+                textAlign = TextAlign.Center
             )
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Count avec style
             Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(
                     Icons.Default.MusicNote,
                     contentDescription = null,
-                    modifier = Modifier.size(20.dp),
-                    tint = Color.White.copy(alpha = 0.8f)
+                    modifier = Modifier.size(16.dp),
+                    tint = gradient[0]
                 )
                 Text(
                     text = "$trackCount morceau${if (trackCount > 1) "x" else ""}",
-                    style = MaterialTheme.typography.bodyLarge.copy(
-                        color = Color.White.copy(alpha = 0.9f),
-                        fontWeight = FontWeight.Medium
-                    )
-                )
-
-                // Durée totale si disponible
-                Box(
-                    modifier = Modifier
-                        .size(4.dp)
-                        .clip(CircleShape)
-                        .background(Color.White.copy(alpha = 0.5f))
-                )
-
-                Text(
-                    text = "${trackCount * 3} min", // Approximation
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        color = Color.White.copy(alpha = 0.7f)
-                    )
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
                 )
             }
         }
@@ -575,153 +837,10 @@ private fun PlaylistHeader(
 }
 
 @Composable
-private fun QuickStats(
-    trackCount: Int,
-    totalDuration: Long,
-    gradient: List<Color>
+private fun EmptyPlaylistState(
+    gradient: List<Color>,
+    onAddTracks: () -> Unit  // ✅ AJOUT
 ) {
-    val minutes = (totalDuration / 1000 / 60).toInt()
-
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(16.dp),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
-        )
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.SpaceEvenly
-        ) {
-            StatItem(
-                icon = Icons.Default.MusicNote,
-                value = "$trackCount",
-                label = "Morceaux",
-                color = gradient[0]
-            )
-
-            StatItem(
-                icon = Icons.Default.Timer,
-                value = "${minutes}min",
-                label = "Durée",
-                color = gradient[1]
-            )
-
-            StatItem(
-                icon = Icons.Default.Favorite,
-                value = "0",
-                label = "Favoris",
-                color = WAVEFORM_PINK
-            )
-        }
-    }
-}
-
-@Composable
-private fun StatItem(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    value: String,
-    label: String,
-    color: Color
-) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Icon(
-            icon,
-            contentDescription = null,
-            modifier = Modifier.size(24.dp),
-            tint = color
-        )
-        Spacer(modifier = Modifier.height(4.dp))
-        Text(
-            text = value,
-            style = MaterialTheme.typography.titleMedium.copy(
-                fontWeight = FontWeight.Bold
-            ),
-            color = MaterialTheme.colorScheme.onSurface
-        )
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-        )
-    }
-}
-
-@Composable
-private fun SectionHeader(
-    title: String,
-    count: Int,
-    gradient: List<Color>
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(4.dp)
-                    .clip(CircleShape)
-                    .background(
-                        Brush.horizontalGradient(
-                            colors = gradient
-                        )
-                    )
-            )
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleLarge.copy(
-                    fontWeight = FontWeight.Bold
-                )
-            )
-        }
-
-        Surface(
-            shape = CircleShape,
-            color = gradient[0].copy(alpha = 0.1f),
-            modifier = Modifier.size(32.dp)
-        ) {
-            Box(contentAlignment = Alignment.Center) {
-                Text(
-                    text = "$count",
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        fontWeight = FontWeight.Bold,
-                        color = gradient[0]
-                    )
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun EmptyPlaylistDetail(
-    gradient: List<Color>
-) {
-    val infiniteTransition = rememberInfiniteTransition(label = "empty_pulse")
-    val scale by infiniteTransition.animateFloat(
-        initialValue = 1f,
-        targetValue = 1.05f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1000, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "empty_scale"
-    )
-
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -729,55 +848,52 @@ private fun EmptyPlaylistDetail(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Box(
-            modifier = Modifier
-                .size(120.dp)
-                .scale(scale),
-            contentAlignment = Alignment.Center
-        ) {
-            // Cercles animés
-            Canvas(modifier = Modifier.matchParentSize()) {
-                for (i in 0..2) {
-                    drawCircle(
-                        brush = Brush.radialGradient(
-                            colors = listOf(
-                                gradient[i % 2].copy(alpha = 0.1f),
-                                Color.Transparent
-                            )
-                        ),
-                        //radius = size().minDimension / 2 * (1f + i * 0.2f),
-                       // center = Offset(size().width() / 2, size().height / 2)
+        // Icône avec effet waveform
+        Box {
+            Canvas(modifier = Modifier.size(150.dp)) {
+                drawCircle(
+                    brush = Brush.radialGradient(
+                        colors = listOf(
+                            gradient[0].copy(alpha = 0.2f),
+                            Color.Transparent
+                        )
+                    ),
+                    radius = size.minDimension / 2
+                )
+            }
+
+            Surface(
+                shape = CircleShape,
+                color = gradient[0].copy(alpha = 0.1f),
+                modifier = Modifier
+                    .size(120.dp)
+                    .align(Alignment.Center)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        Icons.Default.MusicNote,
+                        contentDescription = null,
+                        modifier = Modifier.size(60.dp),
+                        tint = gradient[0]
                     )
                 }
             }
-
-            Icon(
-                Icons.Default.PlaylistAdd,
-                contentDescription = null,
-                modifier = Modifier.size(64.dp),
-                tint = gradient[0]
-            )
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(32.dp))
 
         Text(
-            text = "Cette playlist est vide",
-            style = MaterialTheme.typography.headlineSmall.copy(
+            text = "Playlist vide",
+            style = MaterialTheme.typography.headlineMedium.copy(
                 fontWeight = FontWeight.Bold
             ),
-            textAlign = TextAlign.Center,
-            modifier = Modifier.background(
-                Brush.horizontalGradient(
-                    colors = gradient
-                )
-            )
+            color = MaterialTheme.colorScheme.onSurface
         )
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(12.dp))
 
         Text(
-            "Ajoutez vos morceaux préférés pour créer la playlist parfaite",
+            text = "Ajoutez des morceaux pour\ncommencer à écouter",
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
             textAlign = TextAlign.Center
@@ -785,10 +901,12 @@ private fun EmptyPlaylistDetail(
 
         Spacer(modifier = Modifier.height(32.dp))
 
+        // ✅ Bouton d'ajout avec style waveform
         Button(
-            onClick = { /* Naviguer vers bibliothèque */ },
+            onClick = onAddTracks,
             colors = ButtonDefaults.buttonColors(
-                containerColor = gradient[0]
+                containerColor = gradient[0],
+                contentColor = Color.White
             ),
             shape = RoundedCornerShape(16.dp),
             modifier = Modifier
@@ -797,7 +915,35 @@ private fun EmptyPlaylistDetail(
         ) {
             Icon(Icons.Default.Add, contentDescription = null)
             Spacer(modifier = Modifier.width(8.dp))
-            Text("Ajouter des morceaux")
+            Text(
+                "Ajouter des morceaux",
+                style = MaterialTheme.typography.titleMedium.copy(
+                    fontWeight = FontWeight.Bold
+                )
+            )
+        }
+    }
+}
+
+@Composable
+private fun LoadingState(gradient: List<Color>) {
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            CircularProgressIndicator(
+                color = gradient[0],
+                modifier = Modifier.size(48.dp)
+            )
+            Text(
+                "Chargement...",
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+            )
         }
     }
 }
@@ -805,8 +951,8 @@ private fun EmptyPlaylistDetail(
 @Composable
 private fun ErrorState(
     error: String,
-    onRetry: () -> Unit,
-    gradient: List<Color>
+    gradient: List<Color>,
+    onRetry: () -> Unit
 ) {
     Column(
         modifier = Modifier
